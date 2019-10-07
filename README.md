@@ -24,8 +24,22 @@ _CONUS1 dataset used in project is available on NCAR's RDA and Cheyenne at /gpfs
 | ----------- | ----------- |
 | . | . |
 
-## Variables Derivable from WRF-Python
+
+## Convection Variables to Derive from WRF-Python
 | Variable | Description |
 | ----------- | ----------- |
-| UH | . |
+| UH | Updraft helicity 2-5-km. |
+| SRH03 | Storm relative helicity 0-3-km. |
+| CAPE | Convective available potential energy. |
+| CIN | Convective inhibition. |
+| LCL | Lifting condensation level. |
+| LFC | Level of free convection. |
+| CTT | Cloud top temperature. |
+
+
+
+## General Variables to Derive from WRF-Python for Deep Learning
+| Variable | Description |
+| ----------- | ----------- |
+| . | . |
 
