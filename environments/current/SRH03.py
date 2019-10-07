@@ -1,4 +1,9 @@
 
+#Author: Maria J. Molina
+#National Center for Atmospheric Research
+
+#Script to compute storm relative helicity (SRH 0-3-km) from WRF simulations (CONUS1, 4-km).
+
 
 import xarray as xr
 import numpy as np
