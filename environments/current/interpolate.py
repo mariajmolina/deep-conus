@@ -15,8 +15,6 @@
 
 import xarray as xr
 import numpy as np
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
 
 #--------------------------------------------------
             
@@ -110,6 +108,9 @@ def apply_wrf_interp(data_var, data_AGL):
 #--------------------------------------------------
 
 if __name__== "__main__":
+
+    from ncar_jobqueue import NCARCluster
+    from dask.distributed import Client
 
     #start dask workers
     cluster = NCARCluster(memory="109GB", cores=36)
