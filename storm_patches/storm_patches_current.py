@@ -14,25 +14,19 @@ from datetime import timedelta
 import multiprocessing as mp
 
 
-#FOR CURRENT CLIMATE
-#dates to loop script through
-times_thisfile = pd.date_range('2012-10-01','2013-09-30 23:00:00',freq='D')
 
 
-##########DONT TOUCH ANYTHING BELOW THIS LINE IN THIS BLOCK#####################
-
-total_times = pd.date_range('2000-10-01','2013-09-30 23:00:00',freq='H')
-total_times_indexes = np.arange(0,total_times.shape[0],1)
-the1=135
-the2=650
-the3=500
-the4=1200
-
-#################################################################################
-
-
-
-def main():
+def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
+    
+    #dates to loop script through
+    times_thisfile = pd.date_range(date1, date2, freq='D')
+    
+    total_times = pd.date_range('2000-10-01','2013-09-30 23:00:00',freq='H')
+    total_times_indexes = np.arange(0,total_times.shape[0],1)
+    the1=135
+    the2=650
+    the3=500
+    the4=1200
 
     #start 36 processes in one core.
     pool = mp.Pool(36)
