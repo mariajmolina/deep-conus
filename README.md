@@ -5,8 +5,8 @@ Repository containing scripts associated with ASP deep learning project explorin
 
 _CONUS1 dataset used in project is available on NCAR's RDA and Cheyenne at /gpfs/fs1/collections/rda/data/ds612.0._
 
-## CONUS1 Variables (3D)
 
+## CONUS1 Variables (3D)
 | Variable | Description |
 | ----------- | ----------- |
 | Z | Geopotential Height (PH + PHB)/9.81 (m). |
@@ -18,11 +18,6 @@ _CONUS1 dataset used in project is available on NCAR's RDA and Cheyenne at /gpfs
 | TK | Air temperature (K). |
 | EU | x-wind component (m/s). Used Uearth = U*cosalpha - V*sinalpha to rotate to the earth-relative U. |
 | EV | y-wind component (m/s). Used Vearth = V*cosalpha + U*sinalpha to rotate to the earth-relative V. |
-
-## CONUS1 Variables (2D)
-| Variable | Description |
-| ----------- | ----------- |
-| . | . |
 
 
 ## Convection Variables to Derive from WRF-Python
@@ -37,9 +32,8 @@ _CONUS1 dataset used in project is available on NCAR's RDA and Cheyenne at /gpfs
 | CTT | Cloud top temperature. |
 
 
-
 ## General Variables to Derive from WRF-Python for Deep Learning
 | Variable | Description |
 | ----------- | ----------- |
-| . | . |
+| TK, QVAPOR, EU, EV, P, QGRAUP | Interpolated onto 1, 3, 5, and 7 km. |
 
