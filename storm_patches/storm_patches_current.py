@@ -4,6 +4,10 @@
 #CODE TO EXTRACT STORM PATCHES FROM CONUS1 CURRENT CLIMATE SIMULATIONS.
 
 
+###########################################################################
+###########################################################################
+
+
 from scipy.ndimage import find_objects, center_of_mass, gaussian_filter
 import numpy as np
 import xarray as xr
@@ -14,6 +18,8 @@ from datetime import timedelta
 import multiprocessing as mp
 
 
+###########################################################################
+###########################################################################
 
 
 def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
@@ -65,11 +71,19 @@ def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
         data_longit = data.XLONG.values[the1:the2,the3:the4]
 
         thetimes = total_times_indexes[np.where(total_times==pd.to_datetime(data_refl.Time.values[0]))[0][0]:
-                                       np.where(total_times==pd.to_datetime(data_refl.Time.values[-1]))[0][0]]
+                                       np.where(total_times==pd.to_datetime(data_refl.Time.values[-1])+timedelta(hours=1))[0][0]]
+
+        #double checking that all times contained in original data (wrf) are enclosed within the search time string for that date
+        thetimes = np.array([thetimes[i] for i in data_refl.Time.dt.hour])
+
+        if len(thetimes) == 0:
+            raise IndexError(f"Why is there no time for {times_thisfile[num].strftime('%Y-%m-%d')}")
 
         pool.apply_async(parallelizing_the_func, args=(num, data_reflec, data_latitu, data_longit, thetimes), callback=collect_result)
 
-
+    pool.close()
+    pool.join()  # block at this line until all processes are done
+    print("completed")
 
 
 def parallelizing_the_func(num, data_reflec, data_latitu, data_longit, thetimes):
@@ -100,7 +114,7 @@ def parallelizing_the_func(num, data_reflec, data_latitu, data_longit, thetimes)
                                        dx=1, dt=1,
                                        patch_radius=16)
     
-    print(num, "done")
+    print(num, f"done {times_thisfile[num].strftime('%Y-%m-%d')}")
     
     data_assemble = xr.Dataset({
         'grid':(['starttime','y','x'],
