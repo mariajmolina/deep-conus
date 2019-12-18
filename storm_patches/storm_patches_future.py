@@ -1,7 +1,7 @@
 #Author: Maria J. Molina
 #Using Hagelslag code from David John Gagne
 
-#CODE TO EXTRACT STORM PATCHES FROM CONUS1 CURRENT CLIMATE SIMULATIONS.
+#CODE TO EXTRACT STORM PATCHES FROM CONUS1 FUTURE CLIMATE SIMULATIONS.
 
 
 ###########################################################################
@@ -26,15 +26,14 @@ def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
     
     #dates to loop script through
     times_thisfile = pd.date_range(date1, date2, freq='D')
-    
-    total_times = pd.date_range('2000-10-01','2013-09-30 23:00:00',freq='H')
+
+    total_times = pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
     total_times_indexes = np.arange(0,total_times.shape[0],1)
     the1=135
     the2=650
     the3=500
     the4=1200
 
-    #start 36 processes in one core.
     pool = mp.Pool(36)
 
     results = []
@@ -58,7 +57,7 @@ def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
             mon_1 = '10'
             mon_2 = '12'
 
-        data_path = r'/gpfs/fs1/collections/rda/data/ds612.0/CTRLradrefl/REFLC/wrf2d_d01_CTRL_REFLC_10CM_'+str(times_thisfile[num].strftime('%Y'))+mon_1+'-'+str(times_thisfile[num].strftime('%Y'))+mon_2+'.nc'
+        data_path = r'/gpfs/fs1/collections/rda/data/ds612.0/PGWradrefl/REFLC/wrf2d_d01_PGW_REFLC_10CM_'+str(times_thisfile[num].strftime('%Y'))+mon_1+'-'+str(times_thisfile[num].strftime('%Y'))+mon_2+'.nc'
 
         data = xr.open_dataset(data_path)
 
@@ -81,9 +80,11 @@ def main(date1='2012-10-01', date2='2013-09-30 23:00:00'):
 
         pool.apply_async(parallelizing_the_func, args=(num, data_reflec, data_latitu, data_longit, thetimes), callback=collect_result)
 
+
     pool.close()
     pool.join()  # block at this line until all processes are done
     print("completed")
+
 
 
 def parallelizing_the_func(num, data_reflec, data_latitu, data_longit, thetimes):
@@ -94,7 +95,7 @@ def parallelizing_the_func(num, data_reflec, data_latitu, data_longit, thetimes)
     
     """
 
-    thelabels = label_storm_objects(data_reflec, 
+    thelabels = label_storm_objects(data_reflec,
                                     min_intensity=20, 
                                     max_intensity=40, 
                                     min_area=1, 
@@ -138,11 +139,11 @@ def parallelizing_the_func(num, data_reflec, data_latitu, data_longit, thetimes)
          'y_speed':(['starttime'],np.array([other.v[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1] == 1024]))
         })
     
-    data_assemble.to_netcdf(f"/glade/scratch/molina/WRF_CONUS1_derived/storm_tracks/current_conus1_{times_thisfile[num].strftime('%Y%m%d')}.nc")
+    data_assemble.to_netcdf(f"/glade/scratch/molina/WRF_CONUS1_derived/storm_tracks/future_conus1_{times_thisfile[num].strftime('%Y%m%d')}.nc")
     
     return(num)
-    
-    
+
+
 #################################################################################
 ###################################HAGELSLAG CODE START##########################
 #################################################################################
@@ -931,6 +932,4 @@ if __name__== "__main__":
     main()
 
 #--------------------------------------------------
-
-
 
