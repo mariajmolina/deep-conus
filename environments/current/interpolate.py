@@ -8,21 +8,24 @@
 ###################################################
 
 
-#Script to interpolate specific variable onto a height above ground level (AGL). 
+#Script to interpolate specific variables onto a fixed height above ground level (AGL). 
 #current climate WRF 4-km
 
 #--------------------------------------------------
 
 import xarray as xr
 import numpy as np
+from ncar_jobqueue import NCARCluster
+from dask.distributed import Client
 
 #--------------------------------------------------
-            
+
+    
 
 def open_files(year, month, variable):
     
     """
-    Helper function to open data sets for interpolation calculation.
+    Helper function to open data sets for interpolation calculation for current climate.
     
     Inputs:
     year: year in the loop (str; 4-digit)
@@ -35,12 +38,14 @@ def open_files(year, month, variable):
     """                        
     
     #geopotential height (m)
-    data_zstag = xr.open_mfdataset(f'/glade/scratch/molina/WRF_CONUS1_derived/current/wrf3d_d01_CTRL_Zdestag_{year}{month}*.nc', 
+    data_zstag = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/CTRL3D/{year}/wrf3d_d01_CTRL_Z_{year}{month}*.nc', 
                                    combine='by_coords', parallel=True, chunks={'Time':1}).Z
+    
+    data_zstag = 0.5*(data_zstag[:,0:50,:,:]+data_zstag[:,1:51,:,:])
+    
     #terrain (m)
     data_mapfc = xr.open_dataset('/gpfs/fs1/collections/rda/data/ds612.0/INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
 
-    #convert geopotential heights in m to AGL in m
     data_AGL = data_zstag - data_mapfc
     
     if variable == 'TK':
@@ -65,7 +70,7 @@ def open_files(year, month, variable):
                                        combine='by_coords', parallel=True, chunks={'Time':1}).P*0.01 
     if variable == 'QGRAUP':
         #Graupel mixing ratio (kg/kg)
-        data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/CTRL3D/{year}/wrf2d_d01_CTRL_QGRAUP_{year}{month}.nc', 
+        data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/CTRL3D/{year}/wrf3d_d01_CTRL_QGRAUP_{year}{month}.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QGRAUP
 
     return data_AGL, data_var
@@ -97,23 +102,17 @@ def apply_wrf_interp(data_var, data_AGL):
                           dask='parallelized', 
                           output_dtypes=[float],
                           input_core_dims=[['bottom_top','south_north','west_east'],
-                                           ['bottom_top','south_north','west_east']],
-                          output_sizes=dict(level=4,south_north=1015, west_east=1359),
+                                           ['bottom_top_stag','south_north','west_east']],
+                          output_sizes=dict(level=4, south_north=1015, west_east=1359),
                           output_core_dims=[['level','south_north','west_east']])
 
 
+def main():
 
-
-
-#--------------------------------------------------
-
-if __name__== "__main__":
-
-    from ncar_jobqueue import NCARCluster
-    from dask.distributed import Client
+    #--------------------------------------------------
 
     #start dask workers
-    cluster = NCARCluster(memory="109GB", cores=36)
+    cluster = NCARCluster(memory="109GB", cores=36, project="UCMI0001")
     cluster.adapt(minimum=10, maximum=40, wait_count=60)
     cluster
     #print scripts
@@ -121,23 +120,26 @@ if __name__== "__main__":
     #start client
     client = Client(cluster)
     client
-    
+
+    #--------------------------------------------------
+
+
     #temporal arrays
     formatter = "{:02d}".format
-    months = np.array(list(map(formatter, np.arange(2,13,1))))
-    years = np.array(list(map(formatter, np.arange(2001,2002,1))))
+    months = np.array(list(map(formatter, np.arange(10,13,1))))
+    years = np.array(list(map(formatter, np.arange(2000,2001,1))))
 
     #variable options: TK, QVAPOR, EU, EV, P, QGRAUP
-    variable = 'TK'
+    variable = 'EU'
 
     for year in years:
         for month in months:
 
-            print(f"opening {year} {month} files")
+            print(f"opening {year} {month} files for {variable}")
             data_AGL, data_var = open_files(year, month, variable)
 
             print(f"generating u_func")
-            result_ufunc = apply_wrf_interp(data_AGL, data_var)
+            result_ufunc = apply_wrf_interp(data_var, data_AGL)
 
             print(f"starting interp for {year} {month}")
             r = result_ufunc.compute(retries=10)
@@ -150,5 +152,11 @@ if __name__== "__main__":
             data_var = data_var.close()
 
             print(f"woohoo! {year} {month} complete")
+
+
+#--------------------------------------------------
+
+if __name__== "__main__":
+    main()
 
 #--------------------------------------------------
