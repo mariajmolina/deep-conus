@@ -26,7 +26,7 @@ from dask.distributed import Client
 class interpolate_variable:
 
 
-    def __init__(self, climate, variable, month_start, month_end, year_start, year_end):
+    def __init__(self, climate, variable, month_start, month_end, year_start, year_end, start_dask=True):
 
         """
 
@@ -38,6 +38,7 @@ class interpolate_variable:
         variable: 'TK', QVAPOR, EU, EV, P, QGRAUP (str)
         month: start and end month for the respective interpolation operation (int)
         year: start year of analysis (int)
+        start_dask: whether to launch dask workers or not (boolean)
 
         """
 
@@ -59,6 +60,8 @@ class interpolate_variable:
             self.year2 = year_end+1
         if year_start != year_end:
             self.year2 = year_end
+
+        self.daskstatus = start_dask
 
     
 
@@ -147,7 +150,10 @@ class interpolate_variable:
             Automate the work pipeline
         """
 
-        self.activate_workers()
+
+        if self.daskstatus:
+            self.activate_workers()
+
         yrs, mos = self.generate_timestrings()
 
         for yr in yrs:
