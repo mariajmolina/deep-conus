@@ -26,7 +26,8 @@ from dask.distributed import Client
 class interpolate_variable:
 
 
-    def __init__(self, climate, variable, month_start, month_end, year_start, year_end, start_dask=True):
+    def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
+                 start_dask=True, project_code=None):
 
         """
 
@@ -61,7 +62,14 @@ class interpolate_variable:
         if year_start != year_end:
             self.year2 = year_end
 
+        self.destination = destination
+
         self.daskstatus = start_dask
+        if self.daskstatus:
+            if not project_code:
+                raise Exception("Must provide project code to launch dask workers.")
+            if project_code:
+                self.project_code = project_code
 
     
 
@@ -124,7 +132,7 @@ class interpolate_variable:
 
     def activate_workers(self):
         #start dask workers
-        cluster = NCARCluster(memory="109GB", cores=36, project="P54048000")
+        cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=10, maximum=40, wait_count=60)
         cluster
         #print scripts
@@ -170,7 +178,7 @@ class interpolate_variable:
                 print(f"starting interp for {yr} {mo}")
                 r = result_ufunc.compute(retries=10)
                 print(f"Saving file")
-                r.to_dataset(name='levels').to_netcdf(f"/glade/scratch/molina/DL_proj/{self.climate}_conus_fields/wrf2d_interp_{self.variable}_{yr}{mo}.nc")
+                r.to_dataset(name='levels').to_netcdf(f"/{self.destination}/wrf2d_interp_{self.variable}_{yr}{mo}.nc")
                 r = r.close()
                 data_AGL = data_AGL.close()
                 data_var = data_var.close()
