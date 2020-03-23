@@ -46,7 +46,10 @@ class compute_variable:
 
         """
 
-        self.climate = climate
+        if climate!='current' and climate!='future':
+            raise Exception("Please enter current or future as string for climate period selection.")
+        if climate=='current' or climate=='future':
+            self.climate = climate
 
         if self.climate == 'current':
             self.folder = 'CTRL3D'

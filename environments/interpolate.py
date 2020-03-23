@@ -35,15 +35,18 @@ class interpolate_variable:
 
         Here we will be interpolating the respective variable onto 1, 3, 5, and 7 km above ground level (AGL).
 
-        climate: 'current' or 'future' (str)
-        variable: 'TK', QVAPOR, EU, EV, P, QGRAUP (str)
+        climate: current or future (str)
+        variable: TK, QVAPOR, EU, EV, P, QGRAUP, W, MAXW (str)
         month: start and end month for the respective interpolation operation (int)
         year: start year of analysis (int)
         start_dask: whether to launch dask workers or not (boolean)
 
         """
 
-        self.climate = climate
+        if climate!='current' and climate!='future':
+            raise Exception("Please enter current or future as string for climate period selection.")
+        if climate=='current' or climate=='future':
+            self.climate = climate
 
         if self.climate == 'current':
             self.folder = 'CTRL3D'
@@ -52,7 +55,11 @@ class interpolate_variable:
             self.folder = 'PGW3D'
             self.filename = 'PGW'
 
-        self.variable = variable
+        if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W':
+            raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, or W.")
+        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W':
+            self.variable = variable
+
         self.month1 = month_start
         self.month2 = month_end
         self.year1 = year_start
