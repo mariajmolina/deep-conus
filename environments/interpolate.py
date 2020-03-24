@@ -55,9 +55,9 @@ class interpolate_variable:
             self.folder = 'PGW3D'
             self.filename = 'PGW'
 
-        if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W':
-            raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, or W.")
-        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W':
+        if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W' and variable!='MAXW':
+            raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, W, or MAXW.")
+        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W' or variable 'MAXW':
             self.variable = variable
 
         self.month1 = month_start
@@ -92,6 +92,11 @@ class interpolate_variable:
              data_AGL: above ground level heights [m]
              data_var: the variable data
         """                        
+
+        if self.variable == 'MAXW':
+            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
+                                       combine='by_coords', parallel=True, chunks={'Time':1}).W
+            return data_var
 
         #geopotential height (m)
         data_zstag = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
@@ -193,6 +198,38 @@ class interpolate_variable:
 
 
 
+    def create_the_max_files(self):
+
+        """
+            Create the maximum variable file
+        """
+
+        if self.daskstatus:
+            self.activate_workers()
+
+        yrs, mos = self.generate_timestrings()
+
+        for yr in yrs:
+            for mo in mos:
+
+                print(f"opening {yr} {mo} files for {self.variable}")
+                if self.variable != 'MAXW':
+                    raise Exception("Max variable computation only available for W right now.")
+                if self.variable == 'MAXW':
+                    data_var = self.open_files(yr, mo)
+                    print(f"generating u_func")
+                    result_ufunc = apply_wrf_max_W(data_var)
+
+                print(f"starting max for {yr} {mo}")
+                r = result_ufunc.compute(retries=10)
+                print(f"Saving file")
+                r.to_dataset(name='max_in_vert').to_netcdf(f"/{self.destination}/wrf2d_max_{self.variable}_{yr}{mo}.nc")
+                r = r.close()
+                data_var = data_var.close()
+                print(f"woohoo! {yr} {mo} complete")
+
+
+
 def wrf_interp(data_AGL, data_var):
 
     """
@@ -207,6 +244,7 @@ def wrf_interp(data_AGL, data_var):
     return (wrf.interplevel(data_var.squeeze(),
                             data_AGL.squeeze(),
                             [1000,3000,5000,7000]).expand_dims("Time"))
+
 
 
 def apply_wrf_interp(data_AGL, data_var):
@@ -224,6 +262,7 @@ def apply_wrf_interp(data_AGL, data_var):
                           output_core_dims=[['level','south_north','west_east']])
 
 
+
 def apply_wrf_interp_W(data_AGL, data_var):
 
     """
@@ -238,6 +277,32 @@ def apply_wrf_interp_W(data_AGL, data_var):
                                            ['bottom_top_stag','south_north','west_east']],
                           output_sizes=dict(level=4, south_north=1015, west_east=1359),
                           output_core_dims=[['level','south_north','west_east']])
+
+
+
+def wrf_max(data_var):
+
+    """
+    Function to compute maximum values of data arrays.
+    """
+
+    return (data_var.squeeze().max(dim='bottom_top_stag').expand_dims("Time"))
+
+
+
+def apply_wrf_max_W(data_var):
+
+    """
+    Generate Xarray ufunc to parallelize the wrf-python interpolation computation for W, 
+    which has staggered dims.
+    """
+
+    return xr.apply_ufunc(wrf_max, data_var,
+                          dask='parallelized',
+                          output_dtypes=[float],
+                          input_core_dims=[['bottom_top_stag','south_north','west_east']],
+                          output_sizes=dict(south_north=1015, west_east=1359),
+                          output_core_dims=[['south_north','west_east']])
 
 
 
