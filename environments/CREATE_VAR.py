@@ -27,7 +27,8 @@ class compute_variable:
 
 
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination,
-                 start_dask=True, project_code=None, dx=4000.0, dy=4000.0, uh_bottom=2000.0, uh_top=5000.0):
+                 start_dask=True, project_code=None, cluster_min=10, cluster_max=40, 
+                 dx=4000.0, dy=4000.0, uh_bottom=2000.0, uh_top=5000.0):
 
         """
 
@@ -35,12 +36,17 @@ class compute_variable:
 
         Here we will be computing a variable using state variable data output from CONUS1 simulations.
 
+        PARAMETERS
+        ----------
         climate: 'current' or 'future' (str)
         variable: CAPE, CTT, UH (str)
         month: start and end month for the respective interpolation operation (int)
         year: start year of analysis (int)
         destination: directory to save at (str)
         start_dask: whether to launch dask workers or not (boolean)
+        project_code: charge code for supercomputer account (str; default None)
+        cluster_min: the minimum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 10 [set for interp])
+        cluster_max: the maximum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 40 [set for interp])
         dx, dy: domain grid spacing (float; default 4000.0 meters)
         uh_bottom, uh_top: bottom and top vertical levels for updraft helicity calculation (float; default 2000.0 meters and 5000.0 meters)
 
@@ -80,6 +86,8 @@ class compute_variable:
                 raise Exception("Must provide project code to launch dask workers.")
             if project_code:
                 self.project_code = project_code
+                self.cluster_min = cluster_min
+                self.cluster_max = cluster_max
 
         self.dx = dx
         self.dy = dy
@@ -187,7 +195,7 @@ class compute_variable:
     def activate_workers(self):
         #start dask workers
         cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
-        cluster.adapt(minimum=10, maximum=45, wait_count=60)
+        cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
         cluster
         #print scripts
         print(cluster.job_script())

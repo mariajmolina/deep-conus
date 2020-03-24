@@ -35,6 +35,8 @@ class interpolate_variable:
 
         Here we will be interpolating the respective variable onto 1, 3, 5, and 7 km above ground level (AGL).
 
+        PARAMETERS
+        ----------
         climate: current or future (str)
         variable: TK, QVAPOR, EU, EV, P, QGRAUP, W, MAXW (str)
         month: start and end month for the respective interpolation operation (int)
