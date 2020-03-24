@@ -27,7 +27,7 @@ class interpolate_variable:
 
 
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
-                 start_dask=True, project_code=None):
+                 start_dask=True, project_code=None, cluster_min=10, cluster_max=40):
 
         """
 
@@ -39,7 +39,10 @@ class interpolate_variable:
         variable: TK, QVAPOR, EU, EV, P, QGRAUP, W, MAXW (str)
         month: start and end month for the respective interpolation operation (int)
         year: start year of analysis (int)
-        start_dask: whether to launch dask workers or not (boolean)
+        start_dask: whether to launch dask workers or not (boolean; default True)
+        project_code: charge code for supercomputer account (str; default None)
+        cluster_min: the minimum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 10 [set for interp])
+        cluster_max: the maximum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 40 [set for interp])
 
         """
 
@@ -57,7 +60,7 @@ class interpolate_variable:
 
         if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W' and variable!='MAXW':
             raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, W, or MAXW.")
-        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W' or variable 'MAXW':
+        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W' or variable=='MAXW':
             self.variable = variable
 
         self.month1 = month_start
@@ -77,6 +80,8 @@ class interpolate_variable:
                 raise Exception("Must provide project code to launch dask workers.")
             if project_code:
                 self.project_code = project_code
+                self.cluster_min = cluster_min
+                self.cluster_max = cluster_max
 
     
 
@@ -145,7 +150,7 @@ class interpolate_variable:
     def activate_workers(self):
         #start dask workers
         cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
-        cluster.adapt(minimum=10, maximum=40, wait_count=60)
+        cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
         cluster
         #print scripts
         print(cluster.job_script())
@@ -218,7 +223,7 @@ class interpolate_variable:
                 if self.variable == 'MAXW':
                     data_var = self.open_files(yr, mo)
                     print(f"generating u_func")
-                    result_ufunc = apply_wrf_max_W(data_var)
+                    result_ufunc = data_var.max(dim='bottom_top_stag')
 
                 print(f"starting max for {yr} {mo}")
                 r = result_ufunc.compute(retries=10)
@@ -280,29 +285,6 @@ def apply_wrf_interp_W(data_AGL, data_var):
 
 
 
-def wrf_max(data_var):
-
-    """
-    Function to compute maximum values of data arrays.
-    """
-
-    return (data_var.squeeze().max(dim='bottom_top_stag').expand_dims("Time"))
-
-
-
-def apply_wrf_max_W(data_var):
-
-    """
-    Generate Xarray ufunc to parallelize the wrf-python interpolation computation for W, 
-    which has staggered dims.
-    """
-
-    return xr.apply_ufunc(wrf_max, data_var,
-                          dask='parallelized',
-                          output_dtypes=[float],
-                          input_core_dims=[['bottom_top_stag','south_north','west_east']],
-                          output_sizes=dict(south_north=1015, west_east=1359),
-                          output_core_dims=[['south_north','west_east']])
 
 
 
