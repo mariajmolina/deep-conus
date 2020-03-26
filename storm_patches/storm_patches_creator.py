@@ -8,17 +8,21 @@
 ###########################################################################
 
 
-#-------------------------------------
+#--------------------------------------------------------------------------
 
 import numpy as np
 import xarray as xr
 import pandas as pd
 from datetime import timedelta
 import multiprocessing as mp
-
+import cartopy.io.shapereader as shpreader
+import shapely.geometry as sgeom
+from shapely.ops import unary_union
+from shapely.prepared import prep
+import calendar
 from hagelslag.hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
-#-------------------------------------
+#--------------------------------------------------------------------------
 
 
 class storm_patch_creator:
@@ -26,7 +30,8 @@ class storm_patch_creator:
     
     def __init__(self, date1, date2, climate, destination_path, 
                  min_dbz=20, max_dbz=40, patch_radius=16, method='ws',
-                 dbz_path = '/gpfs/fs1/collections/rda/data/ds612.0/', 
+                 dbz_path='/gpfs/fs1/collections/rda/data/ds612.0/',
+                 uh25_path=None, uh03_path=None, ctt_path=None,
                  num_cpus=36):
         
         """
@@ -45,6 +50,9 @@ class storm_patch_creator:
         patch_radius: number of grid points from center of mass to extract (str; default 16)
         method: "ew" for enhanced watershed, "ws" for regular watershed, and "hyst" for hysteresis (str; default watershed)
         dbz_path: directory where the radar reflectivity data is contained (str)
+        uh25_path: directory where the updraft helicity (2-5-km) data is contained (str, default None)
+        uh03_path: directory where the updraft helicity (0-3-km) data is contained (str, default None)
+        ctt_path: directory where the cloud top temperature data is contained (str, default None)
         num_cpus: number of CPUs for to use in a node for parallelizing extractions (int; default 36)
         
         """
@@ -74,6 +82,9 @@ class storm_patch_creator:
             self.method = method
         
         self.dbz_path = dbz_path
+        self.uh25_path = uh25_path
+        self.uh03_path = uh03_path
+        self.ctt_path = ctt_path
         self.num_cpus = num_cpus
         
 
@@ -94,6 +105,7 @@ class storm_patch_creator:
         """
             Function to help compute the total number of grid boxes (or pixels) in a storm patch.
         """
+        
         return (self.patch_radius*2)*(self.patch_radius*2)
     
     
@@ -114,8 +126,22 @@ class storm_patch_creator:
             mon_1 = '10'; mon_2 = '12'
         return mon_1, mon_2
     
+    
 
-    def create_patches_hourly(self):
+    def is_land(self, x, y):
+        
+        """
+            Function to check if grid points are over land or not.
+        """
+        
+        land_shp_fname = shpreader.natural_earth(resolution='50m', category='physical', name='land')
+        land_geom = unary_union(list(shpreader.Reader(land_shp_fname).geometries()))
+        land = prep(land_geom)        
+        return land.contains(sgeom.Point(x, y))
+    
+
+    
+    def parallelizing_hourly_func(self):
         
         """
             Function to create the hourly storm patches using dbz. 
@@ -123,7 +149,8 @@ class storm_patch_creator:
             Here, we activate the multiprocessing function, and parallelize the creation of these storm patches for efficiency.
             This is done because it is not necessary to communicate between processes, we will be saving each file independent of ongoing processes.
         """
-    
+
+        ###########################################################################
     
         times_thisfile = self.generate_timestring()
     
@@ -133,7 +160,7 @@ class storm_patch_creator:
         #including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
         #(we don't care about storms over water
         
-        total_times = pd.date_range('2000-10-01','2013-09-30 23:00:00',freq='H')
+        total_times = pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
         total_times_indexes = np.arange(0,total_times.shape[0],1)
         the1=135; the2=650; the3=500; the4=1200
         
@@ -142,12 +169,8 @@ class storm_patch_creator:
         #start processes in one core.
         pool = mp.Pool(self.num_cpus)
 
-        results = []
-
-        def collect_result(result):
-            global results
-            results.append(result)
-
+        ###########################################################################
+            
         for num, thedate in enumerate(times_thisfile):
 
             mon_1, mon_2 = self.time_slice_help(thedate.month)
@@ -171,28 +194,27 @@ class storm_patch_creator:
             if len(thetimes) == 0:
                 raise Exception(f"Why is there no time for {times_thisfile[num].strftime('%Y-%m-%d')}")
 
-            pool.apply_async(self.parallelizing_the_func, args=(num, data_reflec, data_latitu, data_longit, thetimes, times_thisfile), callback=collect_result)
+            pool.apply_async(self.create_patches_hourly, args=(num, data_reflec, data_latitu, data_longit, thetimes, times_thisfile))
 
         pool.close()
         pool.join()  # block at this line until all processes are done
-        
         print("completed")
+        
+        ###########################################################################
 
 
     
-    def parallelizing_the_func(self, num, data, lats, lons, thetimes, times_thisfile):
+    def create_patches_hourly(self, num, data, lats, lons, thetimes, times_thisfile):
 
         """
-            Function to run script that finds storm patches in WRF CONUS1 dataset.
+            Function to find storm patches in WRF CONUS1 dataset.
             Saves output to Xarray netCDF files with metadata.
-
         """
 
-        thelabels = label_storm_objects(data, min_intensity=self.min_dbz, max_intensity=self.max_dbz, 
+        thelabels = label_storm_objects(data, method=self.method, min_intensity=self.min_dbz, max_intensity=self.max_dbz, 
                                         min_area=1, max_area=100, max_range=1, increment=1, gaussian_sd=0)
 
         print(num, "postlabel")
-
 
         storm_objs = extract_storm_patches(label_grid=thelabels, data=data, x_grid=lons, y_grid=lats,
                                            times=thetimes, dx=1, dt=1, patch_radius=self.patch_radius)
@@ -200,7 +222,6 @@ class storm_patch_creator:
         print(num, f"done {times_thisfile[num].strftime('%Y-%m-%d')}")
 
         data_assemble = xr.Dataset({
-
              'grid':(['starttime','y','x'],
                  np.array([other.timesteps[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1] == self.total_pixels()])),
              'mask':(['starttime','y','x'],
@@ -214,7 +235,6 @@ class storm_patch_creator:
              'lons':(['starttime','y','x'],
                  np.array([other.x[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1] == self.total_pixels()])),
             },
-
              coords=
             {'starttime':(['starttime'],
                         np.array([other.start_time for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1] == self.total_pixels()])),
@@ -226,12 +246,138 @@ class storm_patch_creator:
                         np.array([other.v[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1] == self.total_pixels()]))
             })
 
-
-        data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_conus1_{times_thisfile[num].strftime('%Y%m%d')}.nc")
+        data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc")
 
         return(num)
     
     
+    
+    def create_patches_3H(self, datetime_value):
 
+        """
+            Function to extract data that corresponds to previously extracted storm patches (with create_patches_hourly) 
+            which is only available in 3-hour intervals (e.g., UH).
+            
+            Input: one day (datetime_value).
+        """
+        
+        ###########################################################################
+        
+        #default values for the WRF CONUS1 dataset below, 
+        #including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
+        #(we don't care about storms over water
+        total_times = pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
+        total_times_indexes = np.arange(0,total_times.shape[0],1)
+        the1=135; the2=650; the3=500; the4=1200
+        
+        #creation of blank lists for variable saving
+        UH25_to_return = []; UH03_to_return = []; CT_to_return = []; DZ_to_return = []; MASK_to_return = []
+        ROW_to_return = []; COL_to_return = []; LAT_to_return = []; LON_to_return = []
+        STM_to_return = []; ETM_to_return = []; XSPD_to_return = []; YSPD_to_return = []        
+        
+        ###########################################################################
+        
+        print(f"doing current: {datetime_value.strftime('%Y%m%d')}")
+
+        #open the original hourly storm patches that were created and saved
+        file_storm = f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc"
+        data_storm = xr.open_dataset(file_storm)
+        
+        #create boolean list of the values that are 3 hourly for variable extraction
+        check_3H_datastorm = np.isin(data_storm.starttime.values,total_times_indexes[::3])
+        
+        #opening the variable data sets (UH and CTT)
+        if not self.uh03_path or not self.uh25_path or not self.ctt_path:
+            raise Exception("Please enter the paths to UH and CTT data.")
+        file_uh25 = f"/{self.uh25_path}/wrf2d_UH_{datetime_value.strftime('%Y%m')}.nc"
+        file_uh03 = f"/{self.uh03_path}/wrf2d_UH_{datetime_value.strftime('%Y%m')}.nc"
+        file_ctt  = f"/{self.ctt_path}/wrf2d_CTT_{datetime_value.strftime('%Y%m')}.nc"
+        try:
+            data_uh25 = xr.open_dataset(file_uh25)
+            data_uh03 = xr.open_dataset(file_uh03)
+            data_ctt  = xr.open_dataset(file_ctt)
+        except IOError:
+            #very few days do not contain identified storms, avoid job kill with exception here.
+            print(f"not found {datetime_value.strftime('%Y%m%d')}")
+            return
 
         
+        uh_time_equiv_storm_patch = total_times_indexes[
+                    np.isin(total_times, pd.date_range(datetime_value.strftime('%Y-%m')+'-01',
+                    pd.to_datetime(datetime_value.strftime('%Y-%m')+'-'+str(calendar.monthrange(datetime_value.year, 
+                                                                                                datetime_value.month)[1]))+timedelta(hours=23), freq='3H'))]
+
+        for storm_patch_file_idx, (storm_time, storm_time_indx) in enumerate(zip(check_3H_datastorm, data_storm.starttime.values)):
+
+            if storm_time:
+
+                if self.is_land(data_storm.lons[storm_patch_file_idx,
+                                                np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[0][0],
+                                                np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[1][0]], 
+                                data_storm.lats[storm_patch_file_idx,
+                                                np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[0][0],
+                                                np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[1][0]]):
+
+                    temp_uh25 = data_uh25.uh[np.where(uh_time_equiv_storm_patch==storm_time_indx)[0],the1:the2,the3:the4].values[0,:,:]
+                    temp_uh03 = data_uh03.uh[np.where(uh_time_equiv_storm_patch==storm_time_indx)[0],the1:the2,the3:the4].values[0,:,:]
+                    temp_ct   = data_ctt.ctt[np.where(uh_time_equiv_storm_patch==storm_time_indx)[0],the1:the2,the3:the4].values[0,:,:]
+                    
+                    UH25_to_return.append(temp_uh25[data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
+                    UH03_to_return.append(temp_uh03[data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
+                    CT_to_return.append(temp_ct[data_storm.row_indices[storm_patch_file_idx].values,     data_storm.col_indices[storm_patch_file_idx].values])
+
+                    DZ_to_return.append(data_storm.grid[storm_patch_file_idx,:,:].values)
+                    MASK_to_return.append(data_storm.mask[storm_patch_file_idx,:,:].values)
+                    ROW_to_return.append(data_storm.row_indices[storm_patch_file_idx,:,:].values)
+                    COL_to_return.append(data_storm.col_indices[storm_patch_file_idx,:,:].values)
+                    LAT_to_return.append(data_storm.lats[storm_patch_file_idx,:,:].values)
+                    LON_to_return.append(data_storm.lons[storm_patch_file_idx,:,:].values)
+                    STM_to_return.append(data_storm.coords['starttime'][storm_patch_file_idx].values)
+                    ETM_to_return.append(data_storm.coords['endtime'][storm_patch_file_idx].values)
+                    XSPD_to_return.append(data_storm.coords['x_speed'][storm_patch_file_idx].values)
+                    YSPD_to_return.append(data_storm.coords['y_speed'][storm_patch_file_idx].values)
+
+        data_assemble = xr.Dataset({
+             'uh_grid':    (['starttime','y','x'],np.array([obj for obj in UH_to_return])),
+             'ctt_grid':   (['starttime','y','x'],np.array([obj for obj in CT_to_return])),
+             'dbz_grid':   (['starttime','y','x'],np.array([obj for obj in DZ_to_return])),
+             'mask':       (['starttime','y','x'],np.array([obj for obj in MASK_to_return])),
+             'row_indices':(['starttime','y','x'],np.array([obj for obj in ROW_to_return])),
+             'col_indices':(['starttime','y','x'],np.array([obj for obj in COL_to_return])),
+             'lats':       (['starttime','y','x'],np.array([obj for obj in LAT_to_return])),
+             'lons':       (['starttime','y','x'],np.array([obj for obj in LON_to_return]))
+            },
+             coords=
+            {'starttime':(['starttime'],np.array([float(obj) for obj in STM_to_return])),
+             'endtime':  (['starttime'],np.array([float(obj) for obj in ETM_to_return])),
+             'x_speed':  (['starttime'],np.array([int(obj) for obj in XSPD_to_return])),
+             'y_speed':  (['starttime'],np.array([int(obj) for obj in YSPD_to_return]))
+            })
+
+        data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SP3hourly_{datetime_value.strftime('%Y%m%d')}.nc")
+        print(f"completed {datetime_value.strftime('%Y%m%d')}")
+        return
+        
+        
+
+    def parallelizing_3hourly_func(self):
+            
+        """
+            Here, we activate the multiprocessing function again, and parallelize the creation of 3-hour storm patches for efficiency.
+        """
+            
+        times_thisfile = self.generate_timestring()
+
+        pool = mp.Pool(self.num_cpus)
+
+        for time_for_file in times_thisfile[:]:
+
+            print(f"start {time_for_file.strftime('%Y%m%d')}")
+            pool.apply_async(self.create_patches_3H, args=(time_for_file))
+
+        pool.close()
+        pool.join()  # block at this line until all processes are done
+        print("completed")
+        
+        
+
