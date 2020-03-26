@@ -128,15 +128,24 @@ class storm_patch_creator:
     
     
 
-    def is_land(self, x, y):
+    def prep_land(self):
         
         """
-            Function to check if grid points are over land or not.
+            Function to generate landmass.
         """
         
         land_shp_fname = shpreader.natural_earth(resolution='50m', category='physical', name='land')
         land_geom = unary_union(list(shpreader.Reader(land_shp_fname).geometries()))
-        land = prep(land_geom)        
+        return prep(land_geom) 
+    
+    
+    
+    def is_land(self, land, x, y):
+        
+        """
+            Function to check if grid points are over land or not with previously generated landmass (prep_land).
+        """
+        
         return land.contains(sgeom.Point(x, y))
     
 
@@ -252,7 +261,7 @@ class storm_patch_creator:
     
     
     
-    def create_patches_3H(self, datetime_value):
+    def create_patches_3H(self, datetime_value, land):
 
         """
             Function to extract data that corresponds to previously extracted storm patches (with create_patches_hourly) 
@@ -311,7 +320,8 @@ class storm_patch_creator:
 
             if storm_time:
 
-                if self.is_land(data_storm.lons[storm_patch_file_idx,
+                if self.is_land(land,
+                                data_storm.lons[storm_patch_file_idx,
                                                 np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[0][0],
                                                 np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[1][0]], 
                                 data_storm.lats[storm_patch_file_idx,
@@ -367,17 +377,18 @@ class storm_patch_creator:
         """
             
         times_thisfile = self.generate_timestring()
+        land = self.prep_land()
 
         pool = mp.Pool(self.num_cpus)
 
         for time_for_file in times_thisfile[:]:
 
             print(f"start {time_for_file.strftime('%Y%m%d')}")
-            pool.apply_async(self.create_patches_3H, args=(time_for_file))
+            pool.apply_async(self.create_patches_3H, args=(time_for_file, land))
 
         pool.close()
         pool.join()  # block at this line until all processes are done
         print("completed")
-        
-        
+
+
 
