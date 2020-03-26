@@ -261,7 +261,7 @@ class storm_patch_creator:
     
     
     
-    def create_patches_3H(self, datetime_value, land):
+    def create_patches_3H(self, datetime_value):
 
         """
             Function to extract data that corresponds to previously extracted storm patches (with create_patches_hourly) 
@@ -269,6 +269,8 @@ class storm_patch_creator:
             
             Input: one day (datetime_value).
         """
+        
+        land = self.prep_land()
         
         ###########################################################################
         
@@ -377,18 +379,19 @@ class storm_patch_creator:
         """
             
         times_thisfile = self.generate_timestring()
-        land = self.prep_land()
 
         pool = mp.Pool(self.num_cpus)
 
-        for time_for_file in times_thisfile[:]:
+        for num, time_for_file in enumerate(times_thisfile):
 
             print(f"start {time_for_file.strftime('%Y%m%d')}")
-            pool.apply_async(self.create_patches_3H, args=(time_for_file, land))
+            pool.apply_async(self.create_patches_3H, args=([time_for_file]))
 
         pool.close()
         pool.join()  # block at this line until all processes are done
         print("completed")
+        
+        ###########################################################################
 
 
 
