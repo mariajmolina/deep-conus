@@ -289,7 +289,7 @@ class storm_patch_creator:
         print(f"doing current: {datetime_value.strftime('%Y%m%d')}")
 
         #open the original hourly storm patches that were created and saved
-        file_storm = f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc"
+        file_storm = f"/{self.destination_path}/{self.climate}_SPhourly_{datetime_value.strftime('%Y%m%d')}.nc"
         data_storm = xr.open_dataset(file_storm)
         
         #create boolean list of the values that are 3 hourly for variable extraction
@@ -335,7 +335,6 @@ class storm_patch_creator:
                     UH25_to_return.append(temp_uh25[data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
                     UH03_to_return.append(temp_uh03[data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
                     CT_to_return.append(temp_ct[data_storm.row_indices[storm_patch_file_idx].values,     data_storm.col_indices[storm_patch_file_idx].values])
-
                     DZ_to_return.append(data_storm.grid[storm_patch_file_idx,:,:].values)
                     MASK_to_return.append(data_storm.mask[storm_patch_file_idx,:,:].values)
                     ROW_to_return.append(data_storm.row_indices[storm_patch_file_idx,:,:].values)
@@ -348,7 +347,8 @@ class storm_patch_creator:
                     YSPD_to_return.append(data_storm.coords['y_speed'][storm_patch_file_idx].values)
 
         data_assemble = xr.Dataset({
-             'uh_grid':    (['starttime','y','x'],np.array([obj for obj in UH_to_return])),
+             'uh25_grid':    (['starttime','y','x'],np.array([obj for obj in UH25_to_return])),
+             'uh03_grid':    (['starttime','y','x'],np.array([obj for obj in UH03_to_return])),
              'ctt_grid':   (['starttime','y','x'],np.array([obj for obj in CT_to_return])),
              'dbz_grid':   (['starttime','y','x'],np.array([obj for obj in DZ_to_return])),
              'mask':       (['starttime','y','x'],np.array([obj for obj in MASK_to_return])),
