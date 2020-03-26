@@ -382,7 +382,7 @@ class storm_patch_creator:
 
         pool = mp.Pool(self.num_cpus)
 
-        for num, time_for_file in enumerate(times_thisfile):
+        for time_for_file in times_thisfile:
 
             print(f"start {time_for_file.strftime('%Y%m%d')}")
             pool.apply_async(self.create_patches_3H, args=([time_for_file]))
