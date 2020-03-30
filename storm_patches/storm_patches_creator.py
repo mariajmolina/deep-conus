@@ -556,6 +556,8 @@ class storm_patch_creator:
 
         if not self.variable_path:
             raise Exception(f"Please enter the directory path for {self.variable}.")
+            
+        _ = self.variable_translate()
         
         times_thisfile = self.generate_timestring()
 
