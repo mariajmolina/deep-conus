@@ -162,7 +162,7 @@ class preprocess_data:
     
     
     
-    def parallelizing_funcs(self):
+    def parallelizing_indxs(self):
         """
             Activate the multiprocessing function to parallelize the functions.
         """
@@ -179,17 +179,25 @@ class preprocess_data:
         pool1.close()
         pool1.join()
         
-        select_months = np.array([12,1,2,3,4,5])
+        print(f"Completed the jobs.")
+        return
         
-        pool2 = mp.Pool(self.num_cpus)
+        
+    def run_months(self, months=np.array([12,1,2,3,4,5]), uh=True, nouh=True):
+        """
+            Automate creating the exceedance/nonexceedance files.
+        """        
+        
+        select_months = months
+        
         for mo in select_months:
-            print(f"Creating {self.month_translate(mo)} patches of threshold exceedances...")
-            pool2.apply_async(self.create_files_exceed_threshold, args=([mo]))
-            print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
-            pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
             
-        pool2.close()
-        pool2.join()        
+            if uh:
+                print(f"Creating {self.month_translate(mo)} patches of threshold exceedances...")
+                pool2.apply_async(self.create_files_exceed_threshold, args=([mo]))
+            if nouh:
+                print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
+                pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
         
         print(f"Completed the jobs.")
         return
