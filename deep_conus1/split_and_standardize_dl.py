@@ -346,11 +346,11 @@ class split_and_standardize:
         train4, test4 = self.create_traintest_data(below4, above4, split_perc=self.percent_split, return_label=False)
 
         if self.variable != 'main':
-            return train1, train2, train3, train4, train_lable, test1, test2, test3, test4, test_label
+            return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
         
         if self.variable == 'main':
             train5, test5 = self.create_traintest_data(below5, above5, split_perc=self.percent_split, return_label=False)
-            return train1, train2, train3, train4, train5, train_lable, test1, test2, test3, test4, test5, test_label
+            return train1, train2, train3, train4, train5, train_label, test1, test2, test3, test4, test5, test_label
         
 
 
@@ -428,7 +428,7 @@ class split_and_standardize:
             {'feature':(['features'],self.attrs_array),
             })
 
-        data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable}_DLdata_trainandtest.nc")
+        data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_DLdata_trainandtest.nc")
         return
 
 
