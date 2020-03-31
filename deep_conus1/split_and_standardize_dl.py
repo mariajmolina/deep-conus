@@ -27,7 +27,7 @@ class split_and_standardize:
     
     def __init__(self, climate, variable, percent_split, project_code, working_directory, threshold1, 
                  mask = False,
-                 cluster_min=10, cluster_max=40):
+                 activate_dask=True, cluster_min=10, cluster_max=40):
         
         
         """
@@ -46,6 +46,7 @@ class split_and_standardize:
         working_directory: path to directory where DL preprocessing files will be saved and worked from (str)
         threshold1: threshold for method (int)
         mask: whether the threshold will be applied within the storm patch mask or not (boolean; default False)
+        activate_dask: whether to initiate dask workers (boolean; default True)
         cluster_min: the minimum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 10 [set for interp])
         cluster_max: the maximum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 40 [set for interp])
         
@@ -66,6 +67,8 @@ class split_and_standardize:
         self.threshold1 = threshold1
         self.cluster_min = cluster_min
         self.cluster_max = cluster_max
+        
+        self.activate_dask = activate_dask
         
         self.mask = mask
         if not self.mask:
@@ -135,21 +138,28 @@ class split_and_standardize:
             Open and concat files for six months of analysis (threshold exceedance).
         """
         
-        data_dec_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
+        data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
                                            parallel=True, combine='by_coords')
-        data_jan_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
+        data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
                                            parallel=True, combine='by_coords')
-        data_feb_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_02.nc", 
+        data_feb = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_02.nc", 
                                            parallel=True, combine='by_coords')
-        data_mar_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_03.nc", 
+        data_mar = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_03.nc", 
                                            parallel=True, combine='by_coords')
-        data_apr_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_04.nc", 
+        data_apr = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_04.nc", 
                                            parallel=True, combine='by_coords')
-        data_may_above = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
+        data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
                                            parallel=True, combine='by_coords')
-        data_above = xr.concat([data_dec_above, data_jan_above, data_feb_above, 
-                                data_mar_above, data_apr_above, data_may_above], dim='patch')
-        return data_above
+        data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        
+        data_dec = data_dec.close()
+        data_jan = data_jan.close()
+        data_feb = data_feb.close()
+        data_mar = data_mar.close()
+        data_apr = data_apr.close()
+        data_may = data_may.close()
+        
+        return data
     
     
     
@@ -171,21 +181,29 @@ class split_and_standardize:
             Open and concat files for six months of analysis (threshold non-exceedance).
         """        
         
-        data_dec_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_12.nc",
+        data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_12.nc",
                                           parallel=True, combine='by_coords')
-        data_jan_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_01.nc",
+        data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_01.nc",
                                            parallel=True, combine='by_coords')
-        data_feb_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_02.nc",
+        data_feb = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_02.nc",
                                            parallel=True, combine='by_coords')
-        data_mar_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_03.nc",
+        data_mar = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_03.nc",
                                            parallel=True, combine='by_coords')
-        data_apr_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_04.nc",
+        data_apr = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_04.nc",
                                            parallel=True, combine='by_coords')
-        data_may_below = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask}_05.nc",
+        data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_05.nc",
                                            parallel=True, combine='by_coords')
-        data_below = xr.concat([data_dec_below, data_jan_below, data_feb_below, 
-                                data_mar_below, data_apr_below, data_may_below], dim='patch')
-        return data_below
+        
+        data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        
+        data_dec = data_dec.close()
+        data_jan = data_jan.close()
+        data_feb = data_feb.close()
+        data_mar = data_mar.close()
+        data_apr = data_apr.close()
+        data_may = data_may.close()
+        
+        return data
 
 
         
@@ -419,17 +437,91 @@ class split_and_standardize:
         """
         
         data_assemble = xr.Dataset({
-            'X_train':(['a','x','y','features'], train_data.reshape(X_train.shape[1],32,32,4)),
+            'X_train':(['a','x','y','features'], train_data.reshape(train_data.shape[1],32,32,4)),
             'X_train_label':(['a'], train_label),
-            'X_test':(['b','x','y','features'], test_data.reshape(X_test.shape[1],32,32,4)),
+            'X_test':(['b','x','y','features'], test_data.reshape(test_data.shape[1],32,32,4)),
             'X_test_label':(['b'], test_label),
             },
              coords=
             {'feature':(['features'],self.attrs_array),
             })
 
-        data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_DLdata_trainandtest.nc")
+        data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
+        print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
         return
 
 
+    
+    def run_sequence(self):
+        """
+            Function to run through full set of steps in data preprocessing for DL model training and testing.
+        """
+        
+        print("Activating workers...")
+        if self.activate_dask:
+            self.activate_workers()
+            
+        print("Opening files...")
+        data_above = self.open_below_threshold()
+        data_below = self.open_below_threshold()
+        
+        
+        if self.variable != 'main':
+        
+            print("Grabbing variables...")
+            above_1, above_2, above_3, above_4 = self.grab_variables(data_above)
+            below_1, below_2, below_3, below_4 = self.grab_variables(data_below)
+            
+            print("Splitting data...")
+            train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label = self.split_data_to_traintest(
+                below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4, below5=None, above5=None)
+            
+            above_1=None; above_2=None; above_3=None; above_4=None
+            below_1=None; below_2=None; below_3=None; below_4=None
 
+            print("Standardizing testing...")
+            test1, test2, test3, test4 = self.standardize_testing(
+                self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4, train5=None, test5=None)
+            
+            print("Standardizing training...")
+            train1, train2, train3, train4 = self.standardize_training(
+                self.standardize_scale_apply, train1, train2, train3, train4, data5=None)
+            
+            print("Stacking files...")
+            Xtrain = self.stack_the_data(train1, train2, train3, train4, data5=None)
+            Xtest = self.stack_the_data(test1, test2, test3, test4, data5=None)
+
+            train1=None; train2=None; train3=None; train4=None
+            test1=None; test2=None; test3=None; test4=None
+            
+            
+        if self.variable == 'main':
+            
+            print("Grabbing variables...")
+            above_1, above_2, above_3, above_4, above_5 = self.grab_variables(data_above)
+            below_1, below_2, below_3, below_4, below_5 = self.grab_variables(data_below)      
+            
+            print("Splitting data...")
+            train1, train2, train3, train4, train5, train_label, test1, test2, test3, test4, test5, test_label = self.split_data_to_traintest(
+                below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4, below5=below_5, above5=above_5)
+            
+            above_1=None; above_2=None; above_3=None; above_4=None; above_5=None
+            below_1=None; below_2=None; below_3=None; below_4=None; below_5=None
+
+            print("Standardizing testing...")
+            test1, test2, test3, test4, test5 = self.standardize_testing(
+                self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4, train5=train5, test5=test5)
+            
+            print("Standardizing training...")
+            train1, train2, train3, train4, train5 = self.standardize_training(
+                self.standardize_scale_apply, train1, train2, train3, train4, data5=train5)
+            
+            print("Stacking files...")
+            Xtrain = self.stack_the_data(train1, train2, train3, train4, data5=train5)
+            Xtest = self.stack_the_data(test1, test2, test3, test4, data5=test5)
+            
+            
+        print("Saving file...")
+        self.save_data(Xtrain, train_label, Xtest, test_label)        
+        return
+        
