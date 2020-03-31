@@ -25,9 +25,7 @@ from dask.distributed import Client
 class split_and_standardize:
     
     
-    def __init__(self, climate, variable, percent_split, project_code, working_directory, threshold1, 
-                 mask = False,
-                 activate_dask=True, cluster_min=10, cluster_max=40):
+    def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask = False):
         
         
         """
@@ -40,15 +38,11 @@ class split_and_standardize:
         PARAMETERS
         ----------
         climate: climate period to derive deep learning data for (str; current or future)
-        variable: variable to run script for (str), including TK, EV, EU, QVAPOR, PRESS, W_vert, main (UH2-5, UH0-3, MAXW, CTT, DBZ).
+        variable: variable to run script for (str), including TK, EV, EU, QVAPOR, PRESS, W_vert, WMAX, DBZ, CTT, UH25, and UH03.
         percent_split: percent for training data, remaining will be assigned for testing (float) E.g., 0.6 is 60% for training, 40% for testing.
-        project_code: code to charge for the launch of dask workers (str)
         working_directory: path to directory where DL preprocessing files will be saved and worked from (str)
         threshold1: threshold for method (int)
         mask: whether the threshold will be applied within the storm patch mask or not (boolean; default False)
-        activate_dask: whether to initiate dask workers (boolean; default True)
-        cluster_min: the minimum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 10 [set for interp])
-        cluster_max: the maximum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 40 [set for interp])
         
         """
         
@@ -62,13 +56,8 @@ class split_and_standardize:
         if percent_split<1:
             self.percent_split = percent_split
             
-        self.project_code = project_code
         self.working_directory = working_directory
         self.threshold1 = threshold1
-        self.cluster_min = cluster_min
-        self.cluster_max = cluster_max
-        
-        self.activate_dask = activate_dask
         
         self.mask = mask
         if not self.mask:
@@ -76,9 +65,12 @@ class split_and_standardize:
         if self.mask:
             self.mask_str = 'mask'
 
-        if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' and variable!='main':
-            raise exception("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``main`` (UH2-5, UH0-3, MAXW, CTT, DBZ) as variable.")
-        if variable=='TK' or variable=='EV' or variable=='EU' or variable=='QVAPOR' or variable=='PRESS' or variable=='W_vert' or variable=='main':
+        if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
+        and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03':
+            raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ as variable.")
+            
+        if variable=='TK' or variable=='EV' or variable=='EU' or variable=='QVAPOR' or variable=='PRESS' or variable=='W_vert' or \
+        variable=='WMAX' or variable=='DBZ' or variable=='CTT' or variable=='UH25' or variable=='UH03':
             self.variable = variable
             
             if self.variable == "TK":
@@ -87,6 +79,7 @@ class split_and_standardize:
                 self.choice_var5 = "temp_sev_5"
                 self.choice_var7 = "temp_sev_7"
                 self.attrs_array = np.array(["tk_1km", "tk_3km", "tk_5km", "tk_7km"])
+                self.single = False
 
             if self.variable == "EV":
                 self.choice_var1 = "evwd_sev_1"
@@ -94,6 +87,7 @@ class split_and_standardize:
                 self.choice_var5 = "evwd_sev_5"
                 self.choice_var7 = "evwd_sev_7"
                 self.attrs_array = np.array(["ev_1km", "ev_3km", "ev_5km", "ev_7km"])
+                self.single = False
 
             if self.variable == "EU":
                 self.choice_var1 = "euwd_sev_1"
@@ -101,6 +95,7 @@ class split_and_standardize:
                 self.choice_var5 = "euwd_sev_5"
                 self.choice_var7 = "euwd_sev_7"
                 self.attrs_array = np.array(["eu_1km", "eu_3km", "eu_5km", "eu_7km"])
+                self.single = False
 
             if self.variable == "QVAPOR":
                 self.choice_var1 = "qvap_sev_1"
@@ -108,6 +103,7 @@ class split_and_standardize:
                 self.choice_var5 = "qvap_sev_5"
                 self.choice_var7 = "qvap_sev_7"
                 self.attrs_array = np.array(["qv_1km", "qv_3km", "qv_5km", "qv_7km"])
+                self.single = False
 
             if self.variable == "PRESS":
                 self.choice_var1 = "pres_sev_1"
@@ -115,6 +111,7 @@ class split_and_standardize:
                 self.choice_var5 = "pres_sev_5"
                 self.choice_var7 = "pres_sev_7"
                 self.attrs_array = np.array(["pr_1km", "pr_3km", "pr_5km", "pr_7km"])
+                self.single = False
 
             if self.variable == "W_vert":
                 self.choice_var1 = "wwnd_sev_1"
@@ -122,15 +119,61 @@ class split_and_standardize:
                 self.choice_var5 = "wwnd_sev_5"
                 self.choice_var7 = "wwnd_sev_7"
                 self.attrs_array = np.array(["ww_1km", "ww_3km", "ww_5km", "ww_7km"])
+                self.single = False
 
-            if self.variable == "main":
-                self.choice_maxw = "maxw_sev_1"
-                self.choice_dbzs = "dbzs_sev_1"
-                self.choice_ctts = "ctts_sev_1"
-                self.choice_uh25 = "uh25_sev_1"
-                self.choice_uh03 = "uh03_sev_1"
-                self.attrs_array = np.array(["maxw", "dbzs", "ctts", "uh25", "uh03"])    
+            if self.variable == "WMAX":
+                self.choice_var1 = "maxw_sev_1"
+                self.attrs_array = np.array(["maxw"]) 
+                self.single = True
+                
+            if self.variable == "DBZ":
+                self.choice_var1 = "dbzs_sev_1"
+                self.attrs_array = np.array(["dbzs"])
+                self.single = True
+                
+            if self.variable == "CTT":
+                self.choice_var1 = "ctts_sev_1"
+                self.attrs_array = np.array(["ctts"]) 
+                self.single = True
+                
+            if self.variable == "UH25":
+                self.choice_var1 = "uh25_sev_1"
+                self.attrs_array = np.array(["uh25"]) 
+                self.single = True
+                
+            if self.variable == "UH03":
+                self.choice_var1 = "uh03_sev_1"
+                self.attrs_array = np.array(["uh03"])    
+                self.single = True
     
+    
+
+    def variable_translate(self):
+        
+        """
+            Variable name for the respective filenames.
+        """
+        
+        var = {
+               'EU':'EU',
+               'EV':'EV',
+               'TK':'TK',
+               'QVAPOR':'QVAPOR',
+               'WMAX':'MAXW',
+               'W_vert':'W',
+               'PRESS':'P',
+               'DBZ':'DBZ',
+               'CTT':'CTT',
+               'UH25':'UH25',
+               'UH03':'UH03',
+              }
+        
+        try:
+            out = var[self.variable]
+            return out
+        except:
+            raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
+        
     
     
     def open_above_threshold(self):
@@ -162,19 +205,6 @@ class split_and_standardize:
         return data
     
     
-    
-    def activate_workers(self):
-        #start dask workers
-        cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
-        cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
-        cluster
-        #print scripts
-        print(cluster.job_script())
-        #start client
-        client = Client(cluster)
-        client
-
-        
         
     def open_below_threshold(self):
         """
@@ -303,30 +333,6 @@ class split_and_standardize:
         """
         return np.divide((test - np.nanmean(train)), np.nanstd(train))
 
-
-
-    def variable_translate(self):
-        
-        """
-            Variable name for the respective filenames.
-        """
-        
-        var = {
-               'EU':'EU',
-               'EV':'EV',
-               'TK':'TK',
-               'QVAPOR':'QVAPOR',
-               'WMAX':'MAXW',
-               'W_vert':'W',
-               'PRESS':'P'
-              }
-        
-        try:
-            out = var[self.variable]
-            return out
-        except:
-            raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
-        
     
     
     def grab_variables(self, data):
@@ -335,7 +341,7 @@ class split_and_standardize:
             Extract variables from main data set.
         """
 
-        if self.variable != 'main':
+        if not self.single:
             
             data_1 = data[self.choice_var1].values
             data_2 = data[self.choice_var3].values
@@ -344,88 +350,81 @@ class split_and_standardize:
             
             return data_1, data_2, data_3, data_4
             
-        if self.variable == 'main':
+        if self.single:
             
-            data_1 = data[self.choice_maxw].values
-            data_2 = data[self.choice_dbzs].values
-            data_3 = data[self.choice_ctts].values
-            data_4 = data[self.choice_uh25].values
-            data_5 = data[self.choice_uh03].values
+            data_1 = data[self.choice_var1].values
             
-            return data_1, data_2, data_3, data_4, data_5
+            return data_1
 
 
         
-    def split_data_to_traintest(self, below1, below2, below3, below4, above1, above2, above3, above4, below5=None, above5=None):
+    def split_data_to_traintest(self, below1=None, below2=None, below3=None, below4=None, above1=None, above2=None, above3=None, above4=None):
         
-        train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
-        train2, test2 = self.create_traintest_data(below2, above2, split_perc=self.percent_split, return_label=False)
-        train3, test3 = self.create_traintest_data(below3, above3, split_perc=self.percent_split, return_label=False)
-        train4, test4 = self.create_traintest_data(below4, above4, split_perc=self.percent_split, return_label=False)
-
-        if self.variable != 'main':
+        if not self.single:
+            
+            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
+            train2, test2 = self.create_traintest_data(below2, above2, split_perc=self.percent_split, return_label=False)
+            train3, test3 = self.create_traintest_data(below3, above3, split_perc=self.percent_split, return_label=False)
+            train4, test4 = self.create_traintest_data(below4, above4, split_perc=self.percent_split, return_label=False)
+            
             return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
         
-        if self.variable == 'main':
-            train5, test5 = self.create_traintest_data(below5, above5, split_perc=self.percent_split, return_label=False)
-            return train1, train2, train3, train4, train5, train_label, test1, test2, test3, test4, test5, test_label
+        if self.single:
+            
+            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
+            
+            return train1, test1, train_label, test_label
         
 
 
-    def standardize_training(self, func, data1, data2, data3, data4, data5=None):
+    def standardize_training(self, func, data1, data2=None, data3=None, data4=None):
         """
             Function to standardize the training data.
             func: choice of standardization method.
         """
         
         data_scaled1 = func(data1)
-        data_scaled2 = func(data2)
-        data_scaled3 = func(data3)
-        data_scaled4 = func(data4)
 
-        if self.variable != 'main':
+        if not self.single:
+            data_scaled2 = func(data2)
+            data_scaled3 = func(data3)
+            data_scaled4 = func(data4)
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
         
-        if self.variable == 'main':
-            data_scaled5 = func(data5)
-            return data_scaled1, data_scaled2, data_scaled3, data_scaled4, data_scale5
+        if self.single:
+            return data_scaled1
         
         
     
-    def standardize_testing(self, func, train1, train2, train3, train4, 
-                            test1, test2, test3, test4, train5=None, test5=None):
+    def standardize_testing(self, func, train1=None, train2=None, train3=None, train4=None, 
+                                        test1=None, test2=None, test3=None, test4=None):
         """
             Function to standardize the testing data.
             func: choice of standardization method.
         """
         
         data1 = func(train1, test1)
-        data2 = func(train2, test2)
-        data3 = func(train3, test3)
-        data4 = func(train4, test4)
         
-        if self.variable != 'main':
+        if not self.single:
+            data2 = func(train2, test2)
+            data3 = func(train3, test3)
+            data4 = func(train4, test4)
             return data1, data2, data3, data4
 
-        if self.variable == 'main':
-            data5 = func(train5, test5)
-            return data1, data2, data3, data4, data5
+        if self.single:
+            return data1
 
 
 
-    def stack_the_data(self, data1, data2, data3, data4, data5=None):
+    def stack_the_data(self, data1, data2, data3, data4):
         
         """
             Stack the numpy arrays before assembling final xarray netcdf file for saving.
         """
 
-        if self.variable != 'main':
+        if not self.single:
             totaldata = np.stack([data1, data2, data3, data4])
-            
-        if self.variable == 'main':
-            totaldata = np.stack([data1, data2, data3, data4, data5])
-            
-        return totaldata
+            return totaldata
 
 
 
@@ -436,16 +435,30 @@ class split_and_standardize:
             This contains data for one variable for ease of use later and storage space considerations.
         """
         
-        data_assemble = xr.Dataset({
-            'X_train':(['a','x','y','features'], train_data.reshape(train_data.shape[1],32,32,4)),
-            'X_train_label':(['a'], train_label),
-            'X_test':(['b','x','y','features'], test_data.reshape(test_data.shape[1],32,32,4)),
-            'X_test_label':(['b'], test_label),
-            },
-             coords=
-            {'feature':(['features'],self.attrs_array),
-            })
-
+        if not self.single:
+            
+            data_assemble = xr.Dataset({
+                'X_train':(['features','a','x','y'], train_data),
+                'X_train_label':(['a'], train_label),
+                'X_test':(['features','b','x','y'], test_data),
+                'X_test_label':(['b'], test_label),
+                },
+                 coords=
+                {'feature':(['features'],self.attrs_array),
+                })
+            
+        if self.single:
+            
+            data_assemble = xr.Dataset({
+                'X_train':(['a','x','y'], train_data),
+                'X_train_label':(['a'], train_label),
+                'X_test':(['b','x','y'], test_data),
+                'X_test_label':(['b'], test_label),
+                },
+                 coords=
+                {'feature':(['features'],self.attrs_array),
+                })
+                 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
         print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
         return
@@ -457,71 +470,67 @@ class split_and_standardize:
             Function to run through full set of steps in data preprocessing for DL model training and testing.
         """
         
-        print("Activating workers...")
-        if self.activate_dask:
-            self.activate_workers()
-            
         print("Opening files...")
         data_above = self.open_below_threshold()
         data_below = self.open_below_threshold()
         
         
-        if self.variable != 'main':
+        if not self.single:
         
             print("Grabbing variables...")
             above_1, above_2, above_3, above_4 = self.grab_variables(data_above)
             below_1, below_2, below_3, below_4 = self.grab_variables(data_below)
             
+            data_above = data_above.close()
+            data_below = data_below.close()
+            
             print("Splitting data...")
             train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label = self.split_data_to_traintest(
-                below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4, below5=None, above5=None)
+                below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4)
             
             above_1=None; above_2=None; above_3=None; above_4=None
             below_1=None; below_2=None; below_3=None; below_4=None
 
             print("Standardizing testing...")
             test1, test2, test3, test4 = self.standardize_testing(
-                self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4, train5=None, test5=None)
+                self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4)
             
             print("Standardizing training...")
-            train1, train2, train3, train4 = self.standardize_training(
-                self.standardize_scale_apply, train1, train2, train3, train4, data5=None)
+            train1, train2, train3, train4 = self.standardize_training(self.standardize_scale_apply, train1, train2, train3, train4)
             
             print("Stacking files...")
-            Xtrain = self.stack_the_data(train1, train2, train3, train4, data5=None)
-            Xtest = self.stack_the_data(test1, test2, test3, test4, data5=None)
+            Xtrain = self.stack_the_data(train1, train2, train3, train4)
+            Xtest = self.stack_the_data(test1, test2, test3, test4)
 
             train1=None; train2=None; train3=None; train4=None
             test1=None;  test2=None;  test3=None;  test4=None
             
             
-        if self.variable == 'main':
+        if self.single:
             
             print("Grabbing variables...")
-            above_1, above_2, above_3, above_4, above_5 = self.grab_variables(data_above)
-            below_1, below_2, below_3, below_4, below_5 = self.grab_variables(data_below)      
+            above_1 = self.grab_variables(data_above)
+            below_1 = self.grab_variables(data_below)   
+            
+            data_above = data_above.close()
+            data_below = data_below.close()
             
             print("Splitting data...")
-            train1, train2, train3, train4, train5, train_label, test1, test2, test3, test4, test5, test_label = self.split_data_to_traintest(
-                below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4, below5=below_5, above5=above_5)
+            train1, test1, train_label, test_label = self.split_data_to_traintest(below1=below_1, above1=above_1)
             
-            above_1=None; above_2=None; above_3=None; above_4=None; above_5=None
-            below_1=None; below_2=None; below_3=None; below_4=None; below_5=None
+            above_1=None; below_1=None
 
             print("Standardizing testing...")
-            test1, test2, test3, test4, test5 = self.standardize_testing(
-                self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4, train5=train5, test5=test5)
+            test1 = self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
             
             print("Standardizing training...")
-            train1, train2, train3, train4, train5 = self.standardize_training(
-                self.standardize_scale_apply, train1, train2, train3, train4, data5=train5)
+            train1 = self.standardize_training(self.standardize_scale_apply, data1=train1)
             
             print("Stacking files...")
-            Xtrain = self.stack_the_data(train1, train2, train3, train4, data5=train5)
-            Xtest = self.stack_the_data(test1, test2, test3, test4, data5=test5)
+            Xtrain = train1
+            Xtest = test1
 
-            train1=None; train2=None; train3=None; train4=None; train5=None
-            test1=None;  test2=None;  test3=None;  test4=None;  test5=None
+            train1=None; test1=None
         
         
         print("Saving file...")
