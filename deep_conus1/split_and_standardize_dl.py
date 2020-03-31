@@ -338,7 +338,7 @@ class split_and_standardize:
 
 
         
-    def split_data_to_traintest(self, below1, below2, below3, below4, below5=None, above1, above2, above3, above4, above5=None):
+    def split_data_to_traintest(self, below1, below2, below3, below4, above1, above2, above3, above4, below5=None, above5=None):
         
         train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
         train2, test2 = self.create_traintest_data(below2, above2, split_perc=self.percent_split, return_label=False)
