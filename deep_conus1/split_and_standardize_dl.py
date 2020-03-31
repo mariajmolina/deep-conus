@@ -492,7 +492,7 @@ class split_and_standardize:
             Xtest = self.stack_the_data(test1, test2, test3, test4, data5=None)
 
             train1=None; train2=None; train3=None; train4=None
-            test1=None; test2=None; test3=None; test4=None
+            test1=None;  test2=None;  test3=None;  test4=None
             
             
         if self.variable == 'main':
@@ -519,9 +519,14 @@ class split_and_standardize:
             print("Stacking files...")
             Xtrain = self.stack_the_data(train1, train2, train3, train4, data5=train5)
             Xtest = self.stack_the_data(test1, test2, test3, test4, data5=test5)
-            
-            
+
+            train1=None; train2=None; train3=None; train4=None; train5=None
+            test1=None;  test2=None;  test3=None;  test4=None;  test5=None
+        
+        
         print("Saving file...")
-        self.save_data(Xtrain, train_label, Xtest, test_label)        
+        self.save_data(Xtrain, train_label, Xtest, test_label) 
+        
+        Xtrain=None; Xtest=None; train_label=None; test_label=None
         return
         
