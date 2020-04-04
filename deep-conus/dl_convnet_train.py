@@ -15,8 +15,6 @@
 #----------------------------------------------------------
 
 
-import matplotlib.pyplot as plt
-
 import keras
 import tensorflow as tf
 from keras import backend as K
@@ -43,121 +41,115 @@ class dl_training:
     
     
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
-                 mask=False, climate='current', 
+                 mask=False, climate='current', print_sequential=True,
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
-                 filter_width=5, learning_rate = 0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
-                 validation_split=0.1, batch_size=128, epochs=10, 
-                 pool_method='mean', batch_norm=True, spatial_drop=True):
+                 filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
+                 validation_split=0.1, batch_size=128, epochs=10):
         
         
-        """
-            Class instantiation of dl_training:
+        """Class instantiation of dl_training:
             
-            Build and train a deep convolutional neural network using previously created imported data.
+        Build and train a deep convolutional neural network using previously created imported data.
             
+        Attributes:
+            working_directory (str): Directory path to save DL model.
+            dlfile_directory (str): Directory path where train data is stored.
+            variables (str): Numpy array of variable name strings.
+            model_num (int): Number assignment for the model.
+            mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
+            climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
+            print_sequential (boolean): Whether to print the sequetial steps occurring during training. Defaults to ``True``.
+            conv_1_mapnum (int): Number of activation maps in first conv layer. Defaults to 32.
+            conv_2_mapnum (int): Number of activation maps in second conv layer. Defaults to 68.
+            conv_3_mapnum (int): Number of activation maps in third conv layer. Defaults to 128.
+            acti_1_func (str): Activation function to apply to first conv layer. Defaults to ``relu``.
+            acti_2_func (str): Activation function to apply to second conv layer. Defaults to ``relu``.
+            acti_3_func (str): Activation function to apply to third conv layer. Defaults to ``relu``.
+            filter_width (int): Width of sliding filter to apply to conv layers. Defaults to 5.
+            learning_rate (float): Learning rate to use for Adam optimizer. Defaults to 0.0001.
+            output_func_and_loss (str): The activation function to apply to the output layer and the loss function to use in training. 
+                                        Defaults to ``sigmoid_mse`` [sigmoid activation function and mean squared error loss function]).
+            strides_len (int): The length of strides to use when sliding the filter. Defaults to 1.
+            validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
+            batch_size (int): Size of batches used during training. Defaults to 128.
+            epochs (int): The number of epochs to run through during training. Defaults to 10.
             
-        PARAMETERS
-        ----------
-        working_directory: directory path to save DL model (str)
-        dlfile_directory: directory path where train data is stored (str)
-        variables: numpy array of variable name strings
-        model_num: number assignment for the model (int)
-        climate: current or future climate (str; default current)
-        conv_1_mapnum: number of activation (feature) maps in first conv layer (int; default 32)
-        conv_2_mapnum: number of activation (feature) maps in second conv layer (int; default 68)
-        conv_3_mapnum: number of activation (feature) maps in third conv layer (int; default 128)
-        acti_1_func: activation function to apply to first conv layer output (str; default relu)
-        acti_2_func: activation function to apply to second conv layer output (str; default relu)
-        acti_3_func: activation function to apply to third conv layer output (str; default relu)
-        filter_width: width of sliding filter for conv layers (int; default 5)
-        learning_rate: learning rate to use for Adam optimizer
-        output_func_and_loss: the activation function to apply to the output layer and loss function to use in training (str; 
-                              default sigmoid_mse [sigmoid act func and mean squared error])
-        strides_len: length of strides when sliding filter (int; default 1)
-        validation_split: percent split of training data used for validation (float; default 0.1 [10%])
-        batch_size: size of batch used during training (int; default 128)
-        epochs: number of epochs to run through during training (int; default 10)
-        pool_method: method to use for pooling layers (str; default mean [also have max])
-        batch_norm: whether to apply batch normalization after every conv layer (boolean; default True)
-        spatial_drop: whether to apply spatial dropout (30%) after every conv layer (boolean; default True)
+        Todo:
+            * Add pool_method attribute; a method to use for pooling layers (str; default mean [also have max]).
+            * Add batch_norm attribute; whether to apply batch normalization after every conv layer (boolean; default True).
+            * Add spatial_drop attribute; whether to apply spatial dropout (30%) after every conv layer (boolean; default True).
         
         """
         
 
-        self.working_directory = working_directory
-        self.dlfile_directory = dlfile_directory
+        self.working_directory=working_directory
+        self.dlfile_directory=dlfile_directory
+        self.variables=variables
+        self.model_num=model_num
         
-        self.variables = variables
-        self.model_num = model_num
-        
-        self.mask = mask
+        self.mask=mask
         if not self.mask:
-            self.mask_str = 'nomask'
+            self.mask_str='nomask'
         if self.mask:
-            self.mask_str = 'mask'
-        
-        self.conv_1_mapnum = conv_1_mapnum
-        self.conv_2_mapnum = conv_2_mapnum
-        self.conv_3_mapnum = conv_3_mapnum
-        
-        self.acti_1_func = acti_1_func
-        self.acti_2_func = acti_2_func
-        self.acti_3_func = acti_3_func
-        
-        self.filter_width = filter_width
-        self.learning_rate = learning_rate
-        
-        
-        self.output_func_and_loss = output_func_and_loss
+            self.mask_str='mask'
 
-        if self.output_func_and_loss == 'softmax':
-            self.denseshape = 2
-            self.loss_func = 'sparse_categorical_crossentropy'
-
-        if self.output_func_and_loss == 'sigmoid_bin':
-            self.denseshape = 1        
-            self.loss_func = 'binary_crossentropy'
-            self.output_activation = 'sigmoid'
-
-        if self.output_func_and_loss == 'sigmoid_mse':
-            self.denseshape = 1        
-            self.loss_func = 'mean_squared_error'
-            self.output_activation = 'sigmoid'
-            
-        
-        self.batch_norm = batch_norm
-        self.spatial_drop = spatial_drop
-        self.strides_len = strides_len
-        
-        self.validation_split = validation_split
-        self.batch_size = batch_size
-        self.epochs = epochs
-        
-        
-        if pool_method == 'mean':
-            self.meanpool = True
-            self.maxpool = False
-            
-        if pool_method == 'max':
-            self.meanpool = False
-            self.maxpool = True
-            
-            
         if climate != 'current' and climate != 'future':
             raise Exception("Please enter current or future for climate option.")
-        if climate == 'current' or climate == 'future':
-            self.climate = climate
+        if climate=='current' or climate=='future':
+            self.climate=climate
+            
+        self.print_sequential=print_sequential
+            
+        self.conv_1_mapnum=conv_1_mapnum
+        self.conv_2_mapnum=conv_2_mapnum
+        self.conv_3_mapnum=conv_3_mapnum
+        
+        self.acti_1_func=acti_1_func
+        self.acti_2_func=acti_2_func
+        self.acti_3_func=acti_3_func
+        
+        self.filter_width=filter_width
+        self.learning_rate=learning_rate
+        
+        self.output_func_and_loss=output_func_and_loss
+
+        if self.output_func_and_loss=='softmax':
+            self.denseshape=2
+            self.loss_func='sparse_categorical_crossentropy'
+
+        if self.output_func_and_loss=='sigmoid_bin':
+            self.denseshape=1        
+            self.loss_func='binary_crossentropy'
+            self.output_activation='sigmoid'
+
+        if self.output_func_and_loss=='sigmoid_mse':
+            self.denseshape=1        
+            self.loss_func='mean_squared_error'
+            self.output_activation='sigmoid'
+            
+        self.strides_len=strides_len
+        self.validation_split=validation_split
+        self.batch_size=batch_size
+        self.epochs=epochs
         
         
         
     def variable_translate(self, variable):
         
-        """
-            Variable name for the respective filenames.
+        """Variable name for the respective filenames.
+           
+        Args:
+            variable (str): The variable to feed into the dictionary.
+            
+        Returns:
+            variable (str): The variable name to use for opening saved files.
+            
+        Raises:
+            ValueError: If provided variable is not available.
         """
         
-        var = {
+        var={
                'EU':'EU',
                'EV':'EV',
                'TK':'TK',
@@ -172,94 +164,100 @@ class dl_training:
               }
         
         try:
-            out = var[variable]
+            out=var[variable]
             return out
         except:
-            raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
+            raise ValueError("Please enter TK, EV, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, or DBZ as variable.")
             
             
 
     def initiate_session(self):
         
-        """
-            Initiate GPU session for DL training.
-        """
+        """Initiate CPU or GPU session for DL training.
         
-        config = tf.compat.v1.ConfigProto()
-        config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-        config.log_device_placement = True  # to log device placement (on which device the operation ran)
+        """
+        config=tf.compat.v1.ConfigProto()
+        config.gpu_options.allow_growth=True  # dynamically grow the memory used on the GPU
+        config.log_device_placement=True  # to log device placement (on which device the operation ran)
                                             # (nothing gets printed in Jupyter, only if you run it standalone)
-        sess = tf.compat.v1.Session(config=config)
+        sess=tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
-        return
     
     
     
     def open_files(self):
 
-        """
-            Open the training data files.
-        """
+        """Open the training data files.
         
-        datas = {}
-        
-        for var in self.variables:
-
-            datas[var] = xr.open_dataset(f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
+        Returns:
+            Dictionary of opened Xarray data arrays containing selected variable training data.
             
+        """
+        datas={}
+        for var in self.variables:
+            datas[var]=xr.open_dataset(f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
         return datas
 
         
 
     def transpose_load_concat(self, **kwargs):
         
-        """
-            Eagerly load the training labels and data, reshaping data to have features in final dim.
-        """
+        """Eagerly load the training labels and data, reshaping data to have features in final dim.
         
-        thedatas = {}
-        label = {}
+        Args:
+            **kwargs: Dictionary containing opened variable training data, which was opened with ``self.open_files()``.
+            
+        Returns:
+            Eagerly loaded training data and labels as numpy arrays.
         
+        """
+        thedatas={}
+        label={}
         for key, value in kwargs.items():
-
-            thedatas[key] = value.X_train.transpose('a','x','y','features').values
-            label = value.X_train_label.values
-
+            thedatas[key]=value.X_train.transpose('a','x','y','features').values
+            label=value.X_train_label.values
         if len(kwargs) > 1:
-            X_train = np.concatenate(list(thedatas.values()), axis=3)
-        if len(kwargs) == 1:
-            X_train = np.squeeze(np.asarray(list(thedatas.values())))
-        
+            X_train=np.concatenate(list(thedatas.values()), axis=3)
+        if len(kwargs)==1:
+            X_train=np.squeeze(np.asarray(list(thedatas.values())))
         return X_train, label
 
 
         
     def omit_nans(self, data, label):
 
+        """Remove any ``nans`` from the training data.
+        
+        Args:
+            data (numpy array): Training data.
+            label (numpy array): Labels for supervised learning.
+            
+        Returns:
+            data (numpy array): Training data with ``nans`` removed.
+            label (numpy array): Corresponding labels of data.
+        
         """
-            Remove any nans from the training data.
-        """
-        
-        maskarray = np.full(data.shape[0], True)
-        
-        masker = np.unique(np.argwhere(np.isnan(data))[:,0])
-        
-        maskarray[masker] = False
-        
-        traindata = data[maskarray,:,:,:]
-        trainlabel = trainlabel[maskarray]
-        
+        maskarray=np.full(data.shape[0], True)
+        masker=np.unique(np.argwhere(np.isnan(data))[:,0])
+        maskarray[masker]=False
+        traindata=data[maskarray,:,:,:]
+        trainlabel=label[maskarray]
         return traindata, trainlabel
 
 
 
     def compile_meanpool_model(self, data):
 
-        """
-            Assemble and compile the deep conv neural network.
-        """
+        """Assemble and compile the deep conv neural network.
         
-        model = Sequential([
+        Args:
+            data (numpy array): Training data with ``nans`` removed.
+        
+        Returns:
+            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network and prints model summary.
+        
+        """
+        model=Sequential([
 
             Conv2D(self.conv_1_mapnum, 
                    (self.filter_width, self.filter_width),
@@ -272,7 +270,6 @@ class dl_training:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None),
 
-            
             BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                    center=True, scale=True, 
                                    beta_initializer='zeros', gamma_initializer='ones',
@@ -285,7 +282,6 @@ class dl_training:
 
             AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
                                  data_format='channels_last'),
-            
             
             Conv2D(self.conv_2_mapnum, 
                    (self.filter_width, self.filter_width),
@@ -298,7 +294,6 @@ class dl_training:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None),
 
-            
             BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                    center=True, scale=True, 
                                    beta_initializer='zeros', gamma_initializer='ones',
@@ -311,7 +306,6 @@ class dl_training:
 
             AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
                                  data_format='channels_last'),
-
 
             Conv2D(self.conv_3_mapnum, 
                    (self.filter_width, self.filter_width),
@@ -324,7 +318,6 @@ class dl_training:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None),
 
-
             BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                    center=True, scale=True, 
                                    beta_initializer='zeros', gamma_initializer='ones',
@@ -338,10 +331,9 @@ class dl_training:
             AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
                                  data_format='channels_last'),
             
-
             Flatten(),
 
-            Dense(units = self.denseshape, activation = self.output_activation, 
+            Dense(units=self.denseshape, activation=self.output_activation, 
                   use_bias=True, 
                   kernel_initializer='glorot_uniform', 
                   bias_initializer='zeros', kernel_regularizer=None, 
@@ -350,59 +342,60 @@ class dl_training:
 
         ])
 
-
-        model.compile(optimizer=Adam(lr = self.learning_rate), loss = self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
-
+        model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
+        print(model.summary())
         return model
-
-    
-    
-    def compile_dl(self, data):
-        
-        """
-            Compile the convolutional neural network and print model summary.
-        """
-    
-        model = compile_meanpool_model(data)
-        model.summary()
-        return
         
         
         
     def train_dl(self, model, data, label):
         
+        """Train the compiled DL model, save the trained model, and save the history and metric information from training to 
+        ``self.dl_filedirectory``.
+            
+        Args: 
+            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
+            data (numpy array): Training data with ``nans`` removed.
+            label (numpy array): Corresponding labels of data.
+            
         """
-            Train the compiled DL model and save output.
-        """
-        
-        history = model.fit(x = data, 
-                            y = label, 
-                            validation_split = self.validation_split, 
-                            batch_size = self.batch_size, 
-                            epochs = self.epochs, 
-                            shuffle = True)
-        
+        history=model.fit(x=data, 
+                            y=label, 
+                            validation_split=self.validation_split, 
+                            batch_size=self.batch_size, 
+                            epochs=self.epochs, 
+                            shuffle=True)
         pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
         save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
-        return
     
     
 
     def sequence_funcs(self):
         
-        """
-            
-        """
+        """Training of the deep convolutional neural network in sequential steps.
         
+        """
+        if self.print_sequential:
+            print("Initiating session...")
         self.initiate_session()
+        if self.print_sequential:
+            print("Opening files...")
+        data=self.open_files()
+        if self.print_sequential:
+            print("Generating training data and labels...")
+        train_data, label_data=self.transpose_load_concat(**data)
+        if self.print_sequential:
+            print("Removing nans...")
+        train_data, label_data=self.omit_nans(train_data, label_data)
+        if self.print_sequential:
+            print("Compiling model...")
+        model=self.compile_meanpool_model(train_data)
+        if self.print_sequential:
+            print("Training model...")
+        self.train_dl(model, train_data, label_data)
+        data=None
+        train_data=None
+        label_data=None
         
-        data = self.open_files()
-        
-        train_data, label_data = self.transpose_load_concat(**data)
-    
-        train_data, label_data = self.omit_nans(train_data, label_data)
-        
-        
-    
     
     
