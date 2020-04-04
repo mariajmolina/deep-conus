@@ -85,7 +85,7 @@ class dl_training:
         if self.mask:
             self.mask_str='mask'
 
-        if climate != 'current' and climate != 'future':
+        if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
         if climate=='current' or climate=='future':
             self.climate=climate

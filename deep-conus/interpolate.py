@@ -48,40 +48,40 @@ class interpolate_variable:
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
         if climate=='current' or climate=='future':
-            self.climate = climate
+            self.climate=climate
 
-        if self.climate == 'current':
-            self.folder = 'CTRL3D'
-            self.filename = 'CTRL'
-        if self.climate == 'future':
-            self.folder = 'PGW3D'
-            self.filename = 'PGW'
+        if self.climate=='current':
+            self.folder='CTRL3D'
+            self.filename='CTRL'
+        if self.climate=='future':
+            self.folder='PGW3D'
+            self.filename='PGW'
 
         if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W' and variable!='MAXW':
             raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, W, or MAXW.")
         if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W' or variable=='MAXW':
-            self.variable = variable
+            self.variable=variable
 
-        self.month1 = month_start
-        self.month2 = month_end
-        self.year1 = year_start
+        self.month1=month_start
+        self.month2=month_end
+        self.year1=year_start
 
-        if year_start == year_end:
-            self.year2 = year_end+1
-        if year_start != year_end:
-            self.year2 = year_end
+        if year_start==year_end:
+            self.year2 = year_end + 1
+        if year_start!=year_end:
+            self.year2=year_end
 
-        self.destination = destination
-        self.rda_path = rda_path
+        self.destination=destination
+        self.rda_path=rda_path
 
-        self.daskstatus = start_dask
+        self.daskstatus=start_dask
         if self.daskstatus:
             if not project_code:
                 raise Exception("Must provide project code to launch dask workers.")
             if project_code:
-                self.project_code = project_code
-                self.cluster_min = cluster_min
-                self.cluster_max = cluster_max
+                self.project_code=project_code
+                self.cluster_min=cluster_min
+                self.cluster_max=cluster_max
 
     
 
@@ -98,47 +98,47 @@ class interpolate_variable:
              data_var (Xarray dask array): The variable data.
              
         """                        
-        if self.variable == 'MAXW':
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
+        if self.variable=='MAXW':
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
             return data_var
 
         #geopotential height (m)
-        data_zstag = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
+        data_zstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
                                    combine='by_coords', parallel=True, chunks={'Time':1}).Z
-        data_zstag = 0.5*(data_zstag[:,0:50,:,:]+data_zstag[:,1:51,:,:])
+        data_zstag = 0.5 * (data_zstag[:,0:50,:,:] + data_zstag[:,1:51,:,:])
         #terrain (m)
-        data_mapfc = xr.open_dataset(f'{self.rda_path}INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
+        data_mapfc=xr.open_dataset(f'{self.rda_path}INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
         data_AGL = data_zstag - data_mapfc
 
-        if self.variable == 'W':
+        if self.variable=='W':
             #z-wind (m/s)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
-            data_var = 0.5*(data_var[:,0:50,:,:]+data_var[:,1:51,:,:])
-        if self.variable == 'TK':
+            data_var = 0.5 * (data_var[:,0:50,:,:] + data_var[:,1:51,:,:])
+        if self.variable=='TK':
             #temperature (kelvin)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_TK_{year}{month}*.nc',
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_TK_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).TK
-        if self.variable == 'QVAPOR':
+        if self.variable=='QVAPOR':
             #water vapor mixing ratio (kg/kg)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QVAPOR_{year}{month}*.nc',
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QVAPOR_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QVAPOR      
-        if self.variable == 'EU':
+        if self.variable=='EU':
             #earth rotated u-winds (m/s)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EU_{year}{month}*.nc', 
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EU_{year}{month}*.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).EU
-        if self.variable == 'EV':
+        if self.variable=='EV':
             #earth rotated v-winds (m/s)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EV_{year}{month}*.nc', 
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EV_{year}{month}*.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).EV
-        if self.variable == 'P':
+        if self.variable=='P':
             #pres_hpa: full pressure (perturb and base state) #convert from Pa to hPa.
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).P*0.01 
-        if self.variable == 'QGRAUP':
+        if self.variable=='QGRAUP':
             #Graupel mixing ratio (kg/kg)
-            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QGRAUP_{year}{month}.nc', 
+            data_var=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QGRAUP_{year}{month}.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QGRAUP
         return data_AGL, data_var
 
@@ -150,13 +150,13 @@ class interpolate_variable:
         
         """
         #start dask workers
-        cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
+        cluster=NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
         cluster
         #print scripts
         print(cluster.job_script())
         #start client
-        client = Client(cluster)
+        client=Client(cluster)
         client
 
 
@@ -170,10 +170,10 @@ class interpolate_variable:
             months (str): Array of month strings formatted with two digits.
         
         """
-        formatter = "{:02d}".format
-        months = np.array(list(map(formatter, np.arange(self.month1, self.month2, 1))))
-        formatter = "{:04d}".format
-        years  = np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
+        formatter="{:02d}".format
+        months=np.array(list(map(formatter, np.arange(self.month1, self.month2, 1))))
+        formatter="{:04d}".format
+        years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
 
 
@@ -185,23 +185,23 @@ class interpolate_variable:
         """
         if self.daskstatus:
             self.activate_workers()
-        yrs, mos = self.generate_timestrings()
+        yrs, mos=self.generate_timestrings()
         for yr in yrs:
             for mo in mos:
                 print(f"opening {yr} {mo} files for {self.variable}")
-                data_AGL, data_var = self.open_files(yr, mo)
+                data_AGL, data_var=self.open_files(yr, mo)
                 print(f"generating u_func")
-                if self.variable != 'W':
-                    result_ufunc = apply_wrf_interp(data_AGL, data_var)
-                if self.variable == 'W':
-                    result_ufunc = apply_wrf_interp_W(data_AGL, data_var)
+                if self.variable!='W':
+                    result_ufunc=apply_wrf_interp(data_AGL, data_var)
+                if self.variable=='W':
+                    result_ufunc=apply_wrf_interp_W(data_AGL, data_var)
                 print(f"starting interp for {yr} {mo}")
-                r = result_ufunc.compute(retries=10)
+                r=result_ufunc.compute(retries=10)
                 print(f"Saving file")
                 r.to_dataset(name='levels').to_netcdf(f"/{self.destination}/wrf2d_interp_{self.variable}_{yr}{mo}.nc")
-                r = r.close()
-                data_AGL = data_AGL.close()
-                data_var = data_var.close()
+                r=r.close()
+                data_AGL=data_AGL.close()
+                data_var=data_var.close()
                 print(f"woohoo! {yr} {mo} complete")
 
 
@@ -213,22 +213,22 @@ class interpolate_variable:
         """
         if self.daskstatus:
             self.activate_workers()
-        yrs, mos = self.generate_timestrings()
+        yrs, mos=self.generate_timestrings()
         for yr in yrs:
             for mo in mos:
                 print(f"opening {yr} {mo} files for {self.variable}")
-                if self.variable != 'MAXW':
+                if self.variable!='MAXW':
                     raise Exception("Max variable computation only available for W right now.")
-                if self.variable == 'MAXW':
-                    data_var = self.open_files(yr, mo)
+                if self.variable=='MAXW':
+                    data_var=self.open_files(yr, mo)
                     print(f"generating u_func")
-                    result_ufunc = data_var.max(dim='bottom_top_stag')
+                    result_ufunc=data_var.max(dim='bottom_top_stag')
                 print(f"starting max for {yr} {mo}")
-                r = result_ufunc.compute(retries=10)
+                r=result_ufunc.compute(retries=10)
                 print(f"Saving file")
                 r.to_dataset(name='max_in_vert').to_netcdf(f"/{self.destination}/wrf2d_max_{self.variable}_{yr}{mo}.nc")
-                r = r.close()
-                data_var = data_var.close()
+                r=r.close()
+                data_var=data_var.close()
                 print(f"woohoo! {yr} {mo} complete")
 
 
@@ -246,7 +246,7 @@ def wrf_interp(data_AGL, data_var):
     
     """
     import os
-    os.environ["PROJ_LIB"] = "/glade/work/molina/miniconda3/envs/python-tutorial/share/proj/"
+    os.environ["PROJ_LIB"]="/glade/work/molina/miniconda3/envs/python-tutorial/share/proj/"
     import wrf
     return (wrf.interplevel(data_var.squeeze(),
                             data_AGL.squeeze(),
