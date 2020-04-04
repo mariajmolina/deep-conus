@@ -108,8 +108,10 @@ class preprocess_data:
         if self.method == 'UHdual':
             if not self.mask:
                 ###
+                return
             if self.mask:
                 ###
+                return
                 
                 
                 

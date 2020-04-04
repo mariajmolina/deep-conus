@@ -32,6 +32,7 @@ class interpolate_variable:
         year_start (int): Start year for the respective interpolation operation.
         year_end (int): End year for the respective interpolation operation.
         destination (str): Directory path of where to save the interpolated variable.
+        rda_path (str): Directory path of where the data files are saved. Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/``.
         start_dask (boolean): Whether to launch dask workers or not. Defaults to ``True``.
         project_code (str): The supercomputer account charge code. Defaults to ``None``.
         cluster_min (str): The minimum number of nodes to initiate for adaptive dask job. Defaults to 10. Each node contains 36 CPUs on Cheyenne.
@@ -41,6 +42,7 @@ class interpolate_variable:
         
         
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
+                 rda_path='/gpfs/fs1/collections/rda/data/ds612.0/',
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40):
 
         if climate!='current' and climate!='future':
@@ -70,6 +72,7 @@ class interpolate_variable:
             self.year2 = year_end
 
         self.destination = destination
+        self.rda_path = rda_path
 
         self.daskstatus = start_dask
         if self.daskstatus:
@@ -96,46 +99,46 @@ class interpolate_variable:
              
         """                        
         if self.variable == 'MAXW':
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
             return data_var
 
         #geopotential height (m)
-        data_zstag = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
+        data_zstag = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
                                    combine='by_coords', parallel=True, chunks={'Time':1}).Z
         data_zstag = 0.5*(data_zstag[:,0:50,:,:]+data_zstag[:,1:51,:,:])
         #terrain (m)
-        data_mapfc = xr.open_dataset('/gpfs/fs1/collections/rda/data/ds612.0/INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
+        data_mapfc = xr.open_dataset(f'{self.rda_path}INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
         data_AGL = data_zstag - data_mapfc
 
         if self.variable == 'W':
             #z-wind (m/s)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
             data_var = 0.5*(data_var[:,0:50,:,:]+data_var[:,1:51,:,:])
         if self.variable == 'TK':
             #temperature (kelvin)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_TK_{year}{month}*.nc',
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_TK_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).TK
         if self.variable == 'QVAPOR':
             #water vapor mixing ratio (kg/kg)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_QVAPOR_{year}{month}*.nc',
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QVAPOR_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QVAPOR      
         if self.variable == 'EU':
             #earth rotated u-winds (m/s)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_EU_{year}{month}*.nc', 
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EU_{year}{month}*.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).EU
         if self.variable == 'EV':
             #earth rotated v-winds (m/s)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_EV_{year}{month}*.nc', 
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EV_{year}{month}*.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).EV
         if self.variable == 'P':
             #pres_hpa: full pressure (perturb and base state) #convert from Pa to hPa.
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).P*0.01 
         if self.variable == 'QGRAUP':
             #Graupel mixing ratio (kg/kg)
-            data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_QGRAUP_{year}{month}.nc', 
+            data_var = xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QGRAUP_{year}{month}.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QGRAUP
         return data_AGL, data_var
 
