@@ -1,12 +1,8 @@
-
 #####################################################################################
 #####################################################################################
 #
 # Author: Maria J. Molina
 # National Center for Atmospheric Research
-#
-# Script to preprocess data for deep learning model training. 
-#
 #
 #####################################################################################
 #####################################################################################
@@ -24,28 +20,26 @@ import multiprocessing as mp
 
 class preprocess_data:
 
+    """Class instantiation of preprocess_data:
+    
+    Here we will be preprocessing data for deep learning model training.
 
-    def __init__(self, working_directory, stormpatch_path, climate, method, threshold1, mask=False, threshold2=None, num_cpus=36):
-
-
-        """
-
-        Instantiation of preprocess_data:
-
-        Here we will be preprocessing data for deep learning model training.
-
-        PARAMETERS
-        ----------
-        working_directory: path to directory where DL preprocessing files will be saved and worked from (str)
-        destination_path: where storm patch files were saved (str)
-        climate: climate period to derive deep learning data for (str; current or future)
-        method: variable choice(s) for preprocessing data, includes UHsingle, UHdouble, and GRP (str)
-        threshold1: threshold for method (int)
-        mask: whether the threshold will be applied within the storm patch mask or not (boolean; default False)
-        threshold2: second threshold for UHdual method (int; default None)
-        num_cpus: number of CPUs for to use in a node for parallelizing extractions (int; default 36)
+    Attributes:
+        working_directory (str): The path to the directory where the deep learning preprocessing files will be saved and worked from. 
+        destination_path (str): Where the storm patch files were saved.
+        climate (str): The climate period to derive deep learning data for. Options are ``current`` or ``future``.
+        method (str): Variable choice(s) for preprocessing data, which include ``UHsingle`` and ``UHdouble``.
+        threshold1 (int): The threshold to use for the chosen method. This value will delineate some form of ``severe`` and ``non-severe`` storm patches.
+        mask (boolean): Whether the threshold will be applied within the storm patch mask or within the full storm patch. Defaults to ``False``.
+        threshold2 (int): The second threshold for ``UHdual`` method. Defaults to ``None``.
+        num_cpus (int): Number of CPUs for to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
-        """
+    Todo:
+        * Add ``UHdual`` method functionality.
+        
+    """
+        
+    def __init__(self, working_directory, stormpatch_path, climate, method, threshold1, threshold2=None, mask=False, num_cpus=36):
 
         self.working_directory = working_directory
         self.stormpatch_path = stormpatch_path
@@ -77,8 +71,11 @@ class preprocess_data:
 
 
     def generate_time_full(self):
-        """
-            Creation of full time period that will be looped through for extracting storm patch information for classes.
+        
+        """Creation of the full time period that will be looped through for extracting storm patch information.
+        Only considering December-May months due to warm season bias over the central CONUS. The CONUS1 simulations
+        were run for 2000-2013.
+        
         """
         return pd.date_range('2000-10-01','2013-09-30',freq='MS')[(pd.date_range('2000-10-01','2013-09-30',freq='MS').month==12)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==1)|
@@ -86,130 +83,146 @@ class preprocess_data:
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==3)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==4)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==5)]
-    
-
-        
-    def generate_time_month(self, month_int):
-        """
-            Creation of time array that will be looped through for extracting storm patch information for classes.
-            month_int: month being computed (int)        
-        """
-        return pd.date_range('2000-10-01','2013-09-30',freq='MS')[(pd.date_range('2000-10-01','2013-09-30',freq='MS').month == month_int)]
 
 
 
     def create_data_indices(self, time):
-        """
-            Split data into categories and save first intermediary files. 
-            Here we create the indices of the classes in the data for later use.
-        """
         
+        """Split the loaded data into categories based on the method chosen and save the first intermediary files. Here we create 
+        the indices of the storm patches that satisfy method criteria for later use.
+        
+        Args:
+            time (DatetimeIndex): Time object from pandas date range.
+        
+        """
         if self.method == 'UHsingle':
-            
             if not self.mask:
                 data = xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
                 data_assemble = xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.values.max(axis=(1,2)) > self.threshold1)[:,0])})
                 data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
-                return
-            
             if self.mask:
                 data = xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
                 data_assemble = xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.where(data.mask).max(axis=(1,2), skipna=True).values > self.threshold1)[:,0])})
                 data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
-                return
                 
         if self.method == 'UHdual':
-           
             if not self.mask:
                 ###
-                return
-            
             if self.mask:
                 ###
-                return
+                
+                
+                
+    def parallelizing_indxs(self):
+        
+        """Activate the multiprocessing function to parallelize the functions.
+        
+        """
+        print(f"Starting jobs...")
+        timearray = self.generate_time_full()
+        pool1 = mp.Pool(self.num_cpus)
+        for time in timearray:
+            print(f"Extracting {time.strftime('%Y-%m')} indices...")
+            pool1.apply_async(self.create_data_indices, args=([time]))
+        pool1.close()
+        pool1.join()
+        print(f"Completed the jobs.")
 
             
             
-    def apply_exceed_mask(self, data_var, data_mask, level):
+    def generate_time_month(self, month_int):
+        
+        """Creation of the time array that will be looped through for extracting storm patch information.
+        
+        Args:
+            month_int (int): The month being used for the time array (2000-2013 years).
+            
+        Returns:
+            Pandas date range for the respective month.
+            
         """
-            Function to retain the patches that exceed threshold.
+        return pd.date_range('2000-10-01','2013-09-30',freq='MS')[(pd.date_range('2000-10-01','2013-09-30',freq='MS').month == month_int)]
+    
+    
+            
+    def apply_exceed_mask(self, data_var, data_mask, level):
+        
+        """Function to retain the patches that exceeded the threshold.
+        
+        Args:
+            data_var (Xarray data array): The variable's data.
+            data_mask (Xarray data array): The storm patch mask.
+            level (int): The dataset level coordinate. This could be 0, 1, 2, or 3.
+            
+        Returns:
+            Xarray data array of the variable for the storm patches that exceeded the method's threshold.
+        
         """        
         return data_var.var_grid.sel(levels=level)[data_mask.grid.values,:,:]
     
     
     
     def apply_notexceed_mask(self, data_var, data_mask, level):
-        """
-            Function to remove the patches that do not exceed threshold.
-        """
+
+        """Function to retain the patches that did not exceed the threshold.
+        
+        Args:
+            data_var (Xarray data array): The variable's data.
+            data_mask (Xarray data array): The storm patch mask.
+            level (int): The dataset level coordinate. This could be 0, 1, 2, or 3.
+            
+        Returns:
+            Numpy array of the variable for the storm patches that did not exceed the method's threshold.
+        
+        """    
         return np.delete(data_var.var_grid.sel(levels=level).values, data_mask.grid.values, axis=0)
     
     
     
     def flatten_list(self, array):
-        """
-            Function to flatten the created list of xarray data arrays.
+        
+        """Function to flatten the created list of Xarray data arrays.
+        
+        Args:
+            array (list): The list of Xarray data arrays.
+            
+        Returns:
+            Flattened list of Xarray data arrays.
+        
         """
         return [j for i in array for j in i.values]
     
     
     
     def flatten_arraylist(self, array):
-        """
-            Function to flatten the created list of numpy arrays.
+        
+        """Function to flatten the created list of numpy arrays.
+        
+        Args:
+            array (list): The list of numpy arrays.
+            
+        Returns:
+            Flattened list of numpy arrays.
+        
         """
         return [j for i in array for j in i]
-    
-    
-    
-    def parallelizing_indxs(self):
-        """
-            Activate the multiprocessing function to parallelize the functions.
-        """
-        
-        print(f"Starting jobs...")
-        
-        timearray = self.generate_time_full()
-        
-        pool1 = mp.Pool(self.num_cpus)
-        for time in timearray:
-            print(f"Extracting {time.strftime('%Y-%m')} indices...")
-            pool1.apply_async(self.create_data_indices, args=([time]))
-            
-        pool1.close()
-        pool1.join()
-        
-        print(f"Completed the jobs.")
-        return
-    
-        
-        
-    def run_months(self, months=np.array([12,1,2,3,4,5]), uh=True, nouh=True):
-        """
-            Automate creating the exceedance/nonexceedance files.
-        """        
-        
-        select_months = months
-        
-        for mo in select_months:
-            
-            if uh:
-                print(f"Creating {self.month_translate(mo)} patches of threshold exceedances...")
-                pool2.apply_async(self.create_files_exceed_threshold, args=([mo]))
-            if nouh:
-                print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
-                pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
-        
-        print(f"Completed the jobs.")
-        return
-        
+
         
         
     def month_translate(self, num):
-        """
-            Convert integer month to string month.
-        """
         
+        """Convert integer month to string month.
+        
+        Args:
+            num (int): Input month.
+            
+        Returns:
+            out (str): Input month as string.
+            
+        Raises:
+            ValueError: If the month is not within the study's range (Dec-May).
+            
+        """
         var = {12:'December',
                1:'January',
                2:'February',
@@ -221,17 +234,42 @@ class preprocess_data:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
+            
+            
+        
+    def run_months(self, months=np.array([12,1,2,3,4,5]), uh=True, nouh=True):
+        
+        """Function to automate and parallelize the creation of the exceedance/nonexceedance files.
+        
+        Args:
+            months (int array): Months to iterate through.
+            uh (boolean): Whether to compute analysis for threshold exceedances. Defaults to ``True``.
+            nouh(boolean): Whether to compute analysis for threshold non-exceedances. Defaults to ``True``.
+        
+        """ 
+        pool2 = mp.Pool(self.num_cpus)
+        for mo in months:
+            if uh:
+                print(f"Creating {self.month_translate(mo)} patches of threshold exceedances...")
+                pool2.apply_async(self.create_files_exceed_threshold, args=([mo]))
+            if nouh:
+                print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
+                pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
+        print(f"Completed the jobs.")
         
             
 
     def create_files_exceed_threshold(self, month_int):
+        
+        """Create and save files containing the environment patches for storms that exceeded the threshold.
+        Data files being opened contain the storm patches, not the full CONUS WRF domain.
+        
+        Args:
+            month_int (int): Month for analysis.
+        
         """
-        Create the files containing chosen environment patches for storms that exceed threshold.
-        Data files being open contain the storm patches. These are not the full WRF domain.
-        """
-
         time_temp = self.generate_time_month(month_int)
-
+        
         data_temp_sev_1 = []; data_temp_sev_3 = []; data_temp_sev_5 = []; data_temp_sev_7 = []; data_evwd_sev_1 = []; data_evwd_sev_3 = []
         data_euwd_sev_1 = []; data_euwd_sev_3 = []; data_euwd_sev_5 = []; data_euwd_sev_7 = []; data_evwd_sev_5 = []; data_evwd_sev_7 = []
         data_qvap_sev_1 = []; data_qvap_sev_3 = []; data_qvap_sev_5 = []; data_qvap_sev_7 = []; data_dbzs_sev_1 = []; data_maxw_sev_1 = []
@@ -239,9 +277,7 @@ class preprocess_data:
         data_wwnd_sev_1 = []; data_wwnd_sev_3 = []; data_wwnd_sev_5 = []; data_wwnd_sev_7 = []; data_uh25_sev_1 = []; data_uh03_sev_1 = []
 
         for time in time_temp:
-
             print(f"opening files for {time.strftime('%Y')}{time.strftime('%m')}")
-            
             data_mask = xr.open_mfdataset(
                 f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc",    
                 combine='by_coords')
@@ -350,17 +386,20 @@ class preprocess_data:
                        'ctts_sev_1':(['patch','y','x'], np.array(data_ctts_sev_1_patches)), 'uh25_sev_1':(['patch','y','x'], np.array(data_uh25_sev_1_patches)),
                        'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), })
 
-        print(f"Exceedances for {time.strftime('%m')} complete...")
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
+        print(f"Exceedances for {time.strftime('%m')} complete...")
 
 
 
     def create_files_notexceed_threshold(self, month_int):
-        """
-        Create the files containing chosen environment patches for storms that exceed threshold.
-        Data files being open contain the storm patches. These are not the full WRF domain.
-        """
 
+        """Create files containing environment patches for storms that did not exceed the threshold.
+        Data files being opened contain the storm patches, not the full CONUS WRF domain.
+        
+        Args:
+            month_int (int): Month for analysis.
+        
+        """
         time_temp = self.generate_time_month(month_int)
 
         data_temp_sev_1 = []; data_temp_sev_3 = []; data_temp_sev_5 = []; data_temp_sev_7 = []; data_evwd_sev_1 = []; data_evwd_sev_3 = []
@@ -370,9 +409,7 @@ class preprocess_data:
         data_wwnd_sev_1 = []; data_wwnd_sev_3 = []; data_wwnd_sev_5 = []; data_wwnd_sev_7 = []; data_uh25_sev_1 = []; data_uh03_sev_1 = []
 
         for time in time_temp:
-
             print(f"opening files for {time.strftime('%Y')}{time.strftime('%m')}")
-            
             data_mask = xr.open_mfdataset(
                 f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc",    
                 combine='by_coords')
@@ -482,8 +519,6 @@ class preprocess_data:
                        'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), })
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
-        
         print(f"Non exceedances for {time.strftime('%m')} complete...")
-        return
 
 

@@ -8,10 +8,6 @@
 ###################################################
 
 
-#Script to interpolate specific variables onto a fixed height above ground level (AGL). 
-#CONUS1 WRF 4-km
-
-
 #--------------------------------------------------
 
 import xarray as xr
@@ -22,31 +18,30 @@ from dask.distributed import Client
 #--------------------------------------------------
 
 
-
 class interpolate_variable:
 
+    """Class instantiation of interpolate_variable:
 
+    Here we will be interpolating the respective variable onto 1, 3, 5, and 7 km above ground level (AGL).
+
+    Attributes:
+        climate (str): Whether to interpolate variable in the ``current`` or ``future`` climate simulation.
+        variable (str): Variable for analysis. Options include ``TK``, ``QVAPOR``, ``EU``, ``EV``, ``P``, ``QGRAUP``, ``W``, and ``MAXW``.
+        month_start (int): Start month for the respective interpolation operation.
+        month_end (int): End month for the respective interpolation operation.
+        year_start (int): Start year for the respective interpolation operation.
+        year_end (int): End year for the respective interpolation operation.
+        destination (str): Directory path of where to save the interpolated variable.
+        start_dask (boolean): Whether to launch dask workers or not. Defaults to ``True``.
+        project_code (str): The supercomputer account charge code. Defaults to ``None``.
+        cluster_min (str): The minimum number of nodes to initiate for adaptive dask job. Defaults to 10. Each node contains 36 CPUs on Cheyenne.
+        cluster_max (str): The maximum number of nodes to initiate for adaptive dask job. Defaults to 40.
+
+    """
+        
+        
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40):
-
-        """
-
-	Instantiation of interpolate_variable:
-
-        Here we will be interpolating the respective variable onto 1, 3, 5, and 7 km above ground level (AGL).
-
-        PARAMETERS
-        ----------
-        climate: current or future (str)
-        variable: TK, QVAPOR, EU, EV, P, QGRAUP, W, MAXW (str)
-        month: start and end month for the respective interpolation operation (int)
-        year: start year of analysis (int)
-        start_dask: whether to launch dask workers or not (boolean; default True)
-        project_code: charge code for supercomputer account (str; default None)
-        cluster_min: the minimum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 10 [set for interp])
-        cluster_max: the maximum number of nodes (with 36 CPUs) to initiate for adaptive dask job (str; default 40 [set for interp])
-
-        """
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
@@ -89,17 +84,17 @@ class interpolate_variable:
 
     def open_files(self, year, month):
     
-        """
-        Helper function to open data sets for interpolation calculation for current climate.
-          Inputs:
-             year: year in the loop (str; 4-digit)
-             month: month in the loop (str; 2-digit)
-             variable: TK, QVAPOR, EU, EV, P, QGRAUP (str) 
+        """Helper function to open data sets for interpolation calculation for current climate.
+        
+        Args:
+            year (str): Year. Should be a 4-digit string.
+            month (str): Month. Should be a 2-digit string.
+            
           Outputs:
-             data_AGL: above ground level heights [m]
-             data_var: the variable data
+             data_AGL (Xarray dask array): The above ground level heights (in meters). This is not output for variable ``MAXW``.
+             data_var (Xarray dask array): The variable data.
+             
         """                        
-
         if self.variable == 'MAXW':
             data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
@@ -109,7 +104,6 @@ class interpolate_variable:
         data_zstag = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
                                    combine='by_coords', parallel=True, chunks={'Time':1}).Z
         data_zstag = 0.5*(data_zstag[:,0:50,:,:]+data_zstag[:,1:51,:,:])
-
         #terrain (m)
         data_mapfc = xr.open_dataset('/gpfs/fs1/collections/rda/data/ds612.0/INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')  
         data_AGL = data_zstag - data_mapfc
@@ -119,7 +113,6 @@ class interpolate_variable:
             data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_W_{year}{month}*.nc',
                                        combine='by_coords', parallel=True, chunks={'Time':1}).W
             data_var = 0.5*(data_var[:,0:50,:,:]+data_var[:,1:51,:,:])
-
         if self.variable == 'TK':
             #temperature (kelvin)
             data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_TK_{year}{month}*.nc',
@@ -144,12 +137,15 @@ class interpolate_variable:
             #Graupel mixing ratio (kg/kg)
             data_var = xr.open_mfdataset(f'/gpfs/fs1/collections/rda/data/ds612.0/{self.folder}/{year}/wrf3d_d01_{self.filename}_QGRAUP_{year}{month}.nc', 
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QGRAUP
-
         return data_AGL, data_var
 
 
 
     def activate_workers(self):
+        
+        """Function to activate dask workers.
+        
+        """
         #start dask workers
         cluster = NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
@@ -163,9 +159,17 @@ class interpolate_variable:
 
 
     def generate_timestrings(self):
-        #temporal arrays
+        
+        """Function to generate analysis years and months as strings.
+        
+        Returns:
+            years (str): Array of year strings formatted with four digits.
+            months (str): Array of month strings formatted with two digits.
+        
+        """
         formatter = "{:02d}".format
         months = np.array(list(map(formatter, np.arange(self.month1, self.month2, 1))))
+        formatter = "{:04d}".format
         years  = np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
 
@@ -173,27 +177,21 @@ class interpolate_variable:
 
     def create_the_interp_files(self):
 
+        """Automate the work pipeline and sequence of functions to be run to create the interpolation files.
+        
         """
-            Automate the work pipeline
-        """
-
-
         if self.daskstatus:
             self.activate_workers()
-
         yrs, mos = self.generate_timestrings()
-
         for yr in yrs:
             for mo in mos:
                 print(f"opening {yr} {mo} files for {self.variable}")
                 data_AGL, data_var = self.open_files(yr, mo)
                 print(f"generating u_func")
-
                 if self.variable != 'W':
                     result_ufunc = apply_wrf_interp(data_AGL, data_var)
                 if self.variable == 'W':
                     result_ufunc = apply_wrf_interp_W(data_AGL, data_var)
-
                 print(f"starting interp for {yr} {mo}")
                 r = result_ufunc.compute(retries=10)
                 print(f"Saving file")
@@ -207,18 +205,14 @@ class interpolate_variable:
 
     def create_the_max_files(self):
 
+        """Automate the work pipeline and sequence of functions to be run to create the maximum value files.
+        
         """
-            Create the maximum variable file
-        """
-
         if self.daskstatus:
             self.activate_workers()
-
         yrs, mos = self.generate_timestrings()
-
         for yr in yrs:
             for mo in mos:
-
                 print(f"opening {yr} {mo} files for {self.variable}")
                 if self.variable != 'MAXW':
                     raise Exception("Max variable computation only available for W right now.")
@@ -226,7 +220,6 @@ class interpolate_variable:
                     data_var = self.open_files(yr, mo)
                     print(f"generating u_func")
                     result_ufunc = data_var.max(dim='bottom_top_stag')
-
                 print(f"starting max for {yr} {mo}")
                 r = result_ufunc.compute(retries=10)
                 print(f"Saving file")
@@ -239,15 +232,19 @@ class interpolate_variable:
 
 def wrf_interp(data_AGL, data_var):
 
+    """Function to compute interpolation using wrf-python.
+    
+    Args:
+        data_AGL (Xarray dask array): Data of heights above ground level.
+        data_var (Xarray dask array): Data of variable for interpolation.
+        
+    Returns:
+        Data interpolated onto four fixed heights (1, 3, 5, and 7 km).
+    
     """
-    Function to compute interpolation using wrf-python.
-    """
-
-    #Imports needed for job workers.
     import os
     os.environ["PROJ_LIB"] = "/glade/work/molina/miniconda3/envs/python-tutorial/share/proj/"
     import wrf
-
     return (wrf.interplevel(data_var.squeeze(),
                             data_AGL.squeeze(),
                             [1000,3000,5000,7000]).expand_dims("Time"))
@@ -256,10 +253,16 @@ def wrf_interp(data_AGL, data_var):
 
 def apply_wrf_interp(data_AGL, data_var):
 
+    """Generate Xarray ufunc to parallelize the wrf-python interpolation computation.
+    
+    Args:
+        data_AGL (Xarray dask array): Data of heights above ground level.
+        data_var (Xarray dask array): Data of variable for interpolation.
+        
+    Returns:
+        Function to parallelize data interpolation onto four fixed heights (1, 3, 5, and 7 km) for all but ``W_vert`` variable.
+        
     """
-    Generate Xarray ufunc to parallelize the wrf-python interpolation computation.
-    """
-
     return xr.apply_ufunc(wrf_interp, data_AGL, data_var,
                           dask='parallelized',
                           output_dtypes=[float],
@@ -272,11 +275,16 @@ def apply_wrf_interp(data_AGL, data_var):
 
 def apply_wrf_interp_W(data_AGL, data_var):
 
+    """Generate Xarray ufunc to parallelize the wrf-python interpolation computation.
+    
+    Args:
+        data_AGL (Xarray dask array): Data of heights above ground level.
+        data_var (Xarray dask array): Data of variable for interpolation.
+        
+    Returns:
+        Function to parallelize data interpolation onto four fixed heights (1, 3, 5, and 7 km) for ``W_vert`` variable.
+        
     """
-    Generate Xarray ufunc to parallelize the wrf-python interpolation computation for W, 
-    which has staggered dims.
-    """
-
     return xr.apply_ufunc(wrf_interp, data_AGL, data_var,
                           dask='parallelized',
                           output_dtypes=[float],
