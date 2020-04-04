@@ -1,12 +1,8 @@
-
 #####################################################################################
 #####################################################################################
 #
 # Author: Maria J. Molina
 # National Center for Atmospheric Research
-#
-# Script to split data into training and testing sets, and standardize, for deep learning model training. 
-#
 #
 #####################################################################################
 #####################################################################################
@@ -24,47 +20,36 @@ from dask.distributed import Client
 
 class split_and_standardize:
     
+    """Class instantiation of split_and_standardize:
+
+    Here we will be preprocessing data for deep learning model training.
+    This module includes methods for training and testing data splits and standardization.
+
+    Attributes:
+        climate (str): The climate period to derive deep learning data for; ``current`` or ``future``.
+        variable (str): Variable to run script the for, which can include ``TK``, ``EV``, ``EU``, ``QVAPOR``, 
+                        ``PRESS``, ``W_vert``, ``WMAX``, ``DBZ``, ``CTT``, ``UH25``, or ``UH03``.
+        percent_split (float): Percentage of total data to assign as training data. The remaining data will be 
+                                assigned as testing data. For example, 0.6 is 60% training data, 40% testing data.
+        working_directory (str): The directory path to where the produced files will be saved and worked from.
+        threshold1 (int): The threshold for used for the chosen classification method (e.g., 75 UH25).
+        mask (boolean): Whether the threshold was applied within the storm patch mask or not. Defaults to ``False``.
+            
+    Raises:
+        Exceptions: Checks whether correct values were input for climate, variable, and percent_split.
+            
+    Todo:
+        * Add second threshold option once it is added as to ``preprocess_dl_data.py``.
+        
+    """
     
-    def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask = False):
-        
-        
-        """
+    def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask=False):
 
-        Instantiation of split_and_standardize:
-
-        Here we will be preprocessing data for deep learning model training.
-        This module includes methods for training and testing data splits and standardization.
-
-        PARAMETERS
-        ----------
-        climate: climate period to derive deep learning data for (str; current or future)
-        variable: variable to run script for (str), including TK, EV, EU, QVAPOR, PRESS, W_vert, WMAX, DBZ, CTT, UH25, and UH03.
-        percent_split: percent for training data, remaining will be assigned for testing (float) E.g., 0.6 is 60% for training, 40% for testing.
-        working_directory: path to directory where DL preprocessing files will be saved and worked from (str)
-        threshold1: threshold for method (int)
-        mask: whether the threshold will be applied within the storm patch mask or not (boolean; default False)
-        
-        """
-        
         if climate != 'current' and climate != 'future':
             raise Exception("Please enter current or future for climate option.")
         if climate == 'current' or climate == 'future':
             self.climate = climate
             
-        if percent_split>=1:
-            raise Exception("Percent split should be a float less than 1.")
-        if percent_split<1:
-            self.percent_split = percent_split
-            
-        self.working_directory = working_directory
-        self.threshold1 = threshold1
-        
-        self.mask = mask
-        if not self.mask:
-            self.mask_str = 'nomask'
-        if self.mask:
-            self.mask_str = 'mask'
-
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03':
             raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ as variable.")
@@ -145,15 +130,34 @@ class split_and_standardize:
                 self.choice_var1 = "uh03_sev_1"
                 self.attrs_array = np.array(["uh03"])    
                 self.single = True
+            
+        if percent_split>=1:
+            raise Exception("Percent split should be a float less than 1.")
+        if percent_split<1:
+            self.percent_split = percent_split
+            
+        self.working_directory = working_directory
+        self.threshold1 = threshold1
+        
+        self.mask = mask
+        if not self.mask:
+            self.mask_str = 'nomask'
+        if self.mask:
+            self.mask_str = 'mask'
     
     
 
     def variable_translate(self):
         
-        """
-            Variable name for the respective filenames.
-        """
+        """Variable name for the respective filenames.
         
+        Returns:
+            variable (str): The variable string used to save files.
+            
+        Raises:
+            ValueError: Input variable must be from available list.
+        
+        """
         var = {
                'EU':'EU',
                'EV':'EV',
@@ -167,7 +171,6 @@ class split_and_standardize:
                'UH25':'UH25',
                'UH03':'UH03',
               }
-        
         try:
             out = var[self.variable]
             return out
@@ -177,10 +180,13 @@ class split_and_standardize:
     
     
     def open_above_threshold(self):
-        """
-            Open and concat files for six months of analysis (threshold exceedance).
-        """
         
+        """Open and concat files for the six months of analysis (threshold exceedance).
+        
+        Returns:
+            data (Xarray dataset): Concatenated six months of data.
+        
+        """
         data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
                                            parallel=True, combine='by_coords')
         data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
@@ -194,23 +200,24 @@ class split_and_standardize:
         data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
                                            parallel=True, combine='by_coords')
         data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
-        
         data_dec = data_dec.close()
         data_jan = data_jan.close()
         data_feb = data_feb.close()
         data_mar = data_mar.close()
         data_apr = data_apr.close()
         data_may = data_may.close()
-        
         return data
     
     
         
     def open_below_threshold(self):
-        """
-            Open and concat files for six months of analysis (threshold non-exceedance).
-        """        
         
+        """Open and concat files for six months of analysis (threshold non-exceedance).
+        
+        Returns:
+            data (Xarray dataset): Concatenated six months of data.
+            
+        """        
         data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_12.nc",
                                           parallel=True, combine='by_coords')
         data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_01.nc",
@@ -223,46 +230,78 @@ class split_and_standardize:
                                            parallel=True, combine='by_coords')
         data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_05.nc",
                                            parallel=True, combine='by_coords')
-        
         data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
-        
         data_dec = data_dec.close()
         data_jan = data_jan.close()
         data_feb = data_feb.close()
         data_mar = data_mar.close()
         data_apr = data_apr.close()
         data_may = data_may.close()
-        
         return data
 
 
         
-    def create_traintest_data(self, data_b, data_a, split_perc, return_label=False):
-        """
-            Balancing of above and below threshold data for training data, spitting out remainder for testing
-            Permute and slice the below threshold data to equal the above threshold data shape.
-        """
+    def grab_variables(self, data):
         
+        """Eagerly load variable data. This function converts dask arrays into numpy arrays.
+        
+        Args:
+            data (Xarray dataset): The original Xarray dataset containing dask arrays.
+            
+        Returns:
+            data_1, data_2, data_3, data_4 or data_1 (numpy array(s)): Input data as numpy arrays.
+            
+        """
+        if not self.single:
+            data_1 = data[self.choice_var1].values
+            data_2 = data[self.choice_var3].values
+            data_3 = data[self.choice_var5].values
+            data_4 = data[self.choice_var7].values
+            return data_1, data_2, data_3, data_4
+        if self.single:
+            data_1 = data[self.choice_var1].values
+            return data_1
+        
+        
+        
+    def create_traintest_data(self, data_b, data_a, return_label=False):
+        
+        """This function performs balancing of above and below threshold data for training and testing data. Data is permuted 
+        before being assigned to training and testing groups. 
+        The training group sample size is computed using the assigned percentage (``self.percent_split``) from the above threshold population. 
+        Then, the testing group sample size is computed using the leftover percentage (e.g., 1-``self.percent_split``) from a population 
+        with a similar ratio of above and below threshold storm patches (e.g., ~5% above threshold to 95% below threshold). This is done
+        artificially balance the ratio of threshold exceeding storms to that of non-exceeding storms, to ensure that the training data set 
+        contains sufficient examples of above threshold storm patches, given that they are rare events. The testing data set is left with 
+        a population of storms that resembles the original data's population.
+        
+        Args:
+            data_b (numpy array): Concatenated six months of data exceeding the threshold.
+            data_a (numpy array): Concatenated six months of data below the threshold.
+            return_label (boolean): Whether to return the label data or not. Defaults to ``False``.
+            
+        Returns:
+            train_data, test_data or train_data, test_data, train_label, test_label (numpy arrays): The training and testing data, and if
+            return_label=``True``, the training and testing data labels for supervised learning.
+            
+        """
         #train above
         np.random.seed(0)
-        select_data = np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*split_perc)]
+        select_data = np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_above = data_a[select_data]
-
         #train below
         np.random.seed(0)
-        select_data = np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*split_perc)]
+        select_data = np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_below = data_b[select_data]
-
         #test above
         np.random.seed(0)
-        select_data = np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*split_perc):]
+        select_data = np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
         test_above = data_a[select_data]
-
         #test below
         np.random.seed(0)
         #slicing to get respective ratio of above to below UH data patches
         select_data = np.random.permutation(
-            data_b.shape[0])[int(data_a.shape[0]*split_perc):int((((data_a.shape[0]*(1-split_perc))*data_b.shape[0])/data_a.shape[0])+(data_a.shape[0]*(1-split_perc)))]
+            data_b.shape[0])[int(data_a.shape[0]*self.percent_split):int((((data_a.shape[0]*(1-self.percent_split))*data_b.shape[0])/data_a.shape[0])+(data_a.shape[0]*(1-self.percent_split)))]
         test_below = data_b[select_data]
 
         #create the label data
@@ -287,7 +326,6 @@ class split_and_standardize:
         
         if not return_label:
             return train_data, test_data  
-        
         if return_label:
             np.random.seed(10)
             train_label = np.random.permutation(train_label)
@@ -298,8 +336,15 @@ class split_and_standardize:
 
     
     def minmax_scale_apply(self, data):
-        """
-            Min-max standardization of the training data.
+        
+        """Min-max standardization of the training data.
+        
+        Args:
+            data (numpy array): Input data to standardize.
+            
+        Returns:
+            data (numpy array): Input data standardized.
+        
         """
         from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler(feature_range=(0, 1))
@@ -309,8 +354,16 @@ class split_and_standardize:
     
     
     def minmax_scale_apply_test(self, train, test):
-        """
-            Min-max standardization of the testing data using training data min/max.
+        
+        """Min-max standardization of the testing data using training data minimum and maximum values.
+        
+        Args:
+            train (numpy array): Input training data for min-max values.
+            test (numpy array): Input testing data to standardize.
+            
+        Returns:
+            test (numpy array): Input testing data standardized.
+        
         """
         from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler(feature_range=(0, 1))
@@ -320,77 +373,91 @@ class split_and_standardize:
     
 
     def standardize_scale_apply(self, data):
-        """
-            Z-score standardization of the training data.
+        
+        """Z-score standardization of the training data.
+        
+        Args:
+            data (numpy array): Input data to standardize.
+            
+        Returns:
+            data (numpy array): Input data standardized.
+            
         """
         return np.divide((data - np.nanmean(data)), np.nanstd(data))
 
 
 
     def standardize_scale_apply_test(self, train, test):
-        """
-            Z-score standardization of the test data using the training data mean and standard deviation.
+        
+        """Z-score standardization of the test data using the training data mean and standard deviation.
+        
+        Args:
+            train (numpy array): Input training data for Z-score distribution values (mean and standard deviation).
+            test (numpy array): Input testing data to standardize.
+            
+        Returns:
+            test (numpy array): Input testing data standardized.
+            
         """
         return np.divide((test - np.nanmean(train)), np.nanstd(train))
 
     
-    
-    def grab_variables(self, data):
-        
-        """
-            Extract variables from main data set.
-        """
-
-        if not self.single:
-            
-            data_1 = data[self.choice_var1].values
-            data_2 = data[self.choice_var3].values
-            data_3 = data[self.choice_var5].values
-            data_4 = data[self.choice_var7].values
-            
-            return data_1, data_2, data_3, data_4
-            
-        if self.single:
-            
-            data_1 = data[self.choice_var1].values
-            
-            return data_1
-
-
         
     def split_data_to_traintest(self, below1=None, below2=None, below3=None, below4=None, above1=None, above2=None, above3=None, above4=None):
         
-        if not self.single:
-            
-            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
-            train2, test2 = self.create_traintest_data(below2, above2, split_perc=self.percent_split, return_label=False)
-            train3, test3 = self.create_traintest_data(below3, above3, split_perc=self.percent_split, return_label=False)
-            train4, test4 = self.create_traintest_data(below4, above4, split_perc=self.percent_split, return_label=False)
-            
-            return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
+        """Function that applies ``create_traintest_data()`` to various variables.
         
+        Args:
+            below1 (numpy array): Storm patch data that does not exceed the threshold. If there are multiple ``below`` arrays, they arranged 
+                                  from low-to-high heights above ground level. Defaults to ``None``.
+            below2 (numpy array): Storm patch data that does not exceed the threshold. Defaults to ``None``.
+            below3 (numpy array): Storm patch data that does not exceed the threshold. Defaults to ``None``.
+            below4 (numpy array): Storm patch data that does not exceed the threshold. Defaults to ``None``.
+            above1 (numpy array): Storm patch data that exceeds the threshold. If there are multiple ``above`` arrays, they arranged from
+                                  low-to-high heights above ground level. Defaults to ``None``.
+            above2 (numpy array): Storm patch data that exceeds the threshold. Defaults to ``None``.
+            above3 (numpy array): Storm patch data that exceeds the threshold. Defaults to ``None``.
+            above4 (numpy array): Storm patch data that exceeds the threshold. Defaults to ``None``.
+            
+        Returns:
+            train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label or train1, test1, train_label, test_label (numpy arrays):
+            The input data variables assembled into training and testing datasets. The corresponding labels are also output. Number of output arrays
+            depends on the variable type (e.g., if interpolated across various heights or if a single variable).
+        
+        """
+        if not self.single:
+            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, return_label=True)
+            train2, test2 = self.create_traintest_data(below2, above2, return_label=False)
+            train3, test3 = self.create_traintest_data(below3, above3, return_label=False)
+            train4, test4 = self.create_traintest_data(below4, above4, return_label=False)
+            return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
         if self.single:
-            
-            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, split_perc=self.percent_split, return_label=True)
-            
+            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, return_label=True)
             return train1, test1, train_label, test_label
         
 
 
     def standardize_training(self, func, data1, data2=None, data3=None, data4=None):
-        """
-            Function to standardize the training data.
-            func: choice of standardization method.
-        """
         
+        """Function to standardize the training data.
+        
+        Args:
+            func (class method): The choice of standardization.
+            data1 (numpy array): Data to be standardized.
+            data2 (numpy array): Data to be standardized. Defaults to ``None``.
+            data3 (numpy array): Data to be standardized. Defaults to ``None``.
+            data4 (numpy array): Data to be standardized. Defaults to ``None``.
+            
+        Returns:
+            data_scaled1, data_scaled2, data_scaled3, data_scaled4 or data_scaled1 (numpy array(s)): The training data standardized.
+            
+        """
         data_scaled1 = func(data1)
-
         if not self.single:
             data_scaled2 = func(data2)
             data_scaled3 = func(data3)
             data_scaled4 = func(data4)
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
-        
         if self.single:
             return data_scaled1
         
@@ -398,19 +465,30 @@ class split_and_standardize:
     
     def standardize_testing(self, func, train1=None, train2=None, train3=None, train4=None, 
                                         test1=None, test2=None, test3=None, test4=None):
-        """
-            Function to standardize the testing data.
-            func: choice of standardization method.
-        """
         
+        """Function to standardize the testing data.
+        
+        Args:
+            func (class method): The choice of standardization.
+            train1 (numpy array): Training data for standardization of testing data.
+            train2 (numpy array): Training data for standardization of testing data. Defaults to ``None``.
+            train3 (numpy array): Training data for standardization of testing data. Defaults to ``None``.
+            train4 (numpy array): Training data for standardization of testing data. Defaults to ``None``.
+            test1 (numpy array): Testing data for standardization.
+            test2 (numpy array): Testing data for standardization. Defaults to ``None``.
+            test3 (numpy array): Testing data for standardization. Defaults to ``None``.
+            test4 (numpy array): Testing data for standardization. Defaults to ``None``.
+            
+        Returns:
+            data1, data2, data3, data4 or data1 (numpy array(s)): The testing data standardized.
+            
+        """
         data1 = func(train1, test1)
-        
         if not self.single:
             data2 = func(train2, test2)
             data3 = func(train3, test3)
             data4 = func(train4, test4)
             return data1, data2, data3, data4
-
         if self.single:
             return data1
 
@@ -418,10 +496,18 @@ class split_and_standardize:
 
     def stack_the_data(self, data1, data2, data3, data4):
         
+        """Stack the numpy arrays before assembling final xarray netcdf file for saving.
+        
+        Args:
+            data1 (numpy array): Data to be stacked. Arrange from lowest (``data1``) to highest (``data2``) vertical heights.
+            data2 (numpy array): Data to be stacked.
+            data3 (numpy array): Data to be stacked.
+            data4 (numpy array): Data to be stacked.
+            
+        Returns:
+            totaldata (numpy array): Stacked data variables.
+            
         """
-            Stack the numpy arrays before assembling final xarray netcdf file for saving.
-        """
-
         if not self.single:
             totaldata = np.stack([data1, data2, data3, data4])
             return totaldata
@@ -430,13 +516,17 @@ class split_and_standardize:
 
     def save_data(self, train_data, train_label, test_data, test_label):
         
-        """
-            Create and save file that contains split standardized data for deep learning model training.
-            This contains data for one variable for ease of use later and storage space considerations.
-        """
+        """Creates and saves the file that contains the training and testing standardized data for deep learning model training and 
+        evaluation. The file contains data for one variable for ease of use later and storage space considerations.
         
-        if not self.single:
+        Args:
+            train_data (numpy array): The training data.
+            train_label (numpy array): The training data labels.
+            test_data (numpy array): The testing data.
+            test_label (numpy array): The testing data labels.
             
+        """
+        if not self.single: 
             data_assemble = xr.Dataset({
                 'X_train':(['features','a','x','y'], train_data),
                 'X_train_label':(['a'], train_label),
@@ -446,9 +536,7 @@ class split_and_standardize:
                  coords=
                 {'feature':(['features'],self.attrs_array),
                 })
-            
         if self.single:
-            
             data_assemble = xr.Dataset({
                 'X_train':(['a','x','y'], train_data),
                 'X_train_label':(['a'], train_label),
@@ -458,23 +546,20 @@ class split_and_standardize:
                  coords=
                 {'feature':(['features'],self.attrs_array),
                 })
-                 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
         print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
-        return
 
 
     
     def run_sequence(self):
-        """
-            Function to run through full set of steps in data preprocessing for DL model training and testing.
-        """
         
+        """Function that runs through the sequence of steps in data preprocessing for deep learning model training and testing data creation.
+        
+        """
         print("Opening files...")
         data_above = self.open_above_threshold()
         data_below = self.open_below_threshold()
-        
-        
+
         if not self.single:
         
             print("Grabbing variables...")
@@ -505,7 +590,6 @@ class split_and_standardize:
             train1=None; train2=None; train3=None; train4=None
             test1=None;  test2=None;  test3=None;  test4=None
             
-            
         if self.single:
             
             print("Grabbing variables...")
@@ -532,10 +616,8 @@ class split_and_standardize:
 
             train1=None; test1=None
         
-        
         print("Saving file...")
         self.save_data(Xtrain, train_label, Xtest, test_label) 
         
         Xtrain=None; Xtest=None; train_label=None; test_label=None
-        return
         

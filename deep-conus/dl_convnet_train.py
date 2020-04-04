@@ -1,19 +1,14 @@
-
 #####################################################################################
 #####################################################################################
 #
 # Author: Maria J. Molina
 # National Center for Atmospheric Research
 #
-# Script to split data into training and testing sets, and standardize, for deep learning model training. 
-#
-#
 #####################################################################################
 #####################################################################################
 
 
 #----------------------------------------------------------
-
 
 import keras
 import tensorflow as tf
@@ -32,13 +27,45 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-
 #----------------------------------------------------------
 
 
 
 class dl_training:
-    
+
+    """Class instantiation of dl_training:
+            
+    Build and train a deep convolutional neural network using previously created imported data.
+            
+    Attributes:
+        working_directory (str): Directory path to save DL model.
+        dlfile_directory (str): Directory path where train data is stored.
+        variables (str): Numpy array of variable name strings. Input as a numpy array.
+        model_num (int): Number assignment for the model.
+        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
+        climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
+        print_sequential (boolean): Whether to print the sequetial steps occurring during training. Defaults to ``True``.
+        conv_1_mapnum (int): Number of activation maps in first conv layer. Defaults to 32.
+        conv_2_mapnum (int): Number of activation maps in second conv layer. Defaults to 68.
+        conv_3_mapnum (int): Number of activation maps in third conv layer. Defaults to 128.
+        acti_1_func (str): Activation function to apply to first conv layer. Defaults to ``relu``.
+        acti_2_func (str): Activation function to apply to second conv layer. Defaults to ``relu``.
+        acti_3_func (str): Activation function to apply to third conv layer. Defaults to ``relu``.
+        filter_width (int): Width of sliding filter to apply to conv layers. Defaults to 5.
+        learning_rate (float): Learning rate to use for Adam optimizer. Defaults to 0.0001.
+        output_func_and_loss (str): The activation function to apply to the output layer and the loss function to use in training. 
+                                    Defaults to ``sigmoid_mse`` [sigmoid activation function and mean squared error loss function]).
+        strides_len (int): The length of strides to use when sliding the filter. Defaults to 1.
+        validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
+        batch_size (int): Size of batches used during training. Defaults to 128.
+        epochs (int): The number of epochs to run through during training. Defaults to 10.
+            
+    Todo:
+        * Add pool_method attribute; a method to use for pooling layers (str; default mean [also have max]).
+        * Add batch_norm attribute; whether to apply batch normalization after every conv layer (boolean; default True).
+        * Add spatial_drop attribute; whether to apply spatial dropout (30%) after every conv layer (boolean; default True).
+        
+    """
     
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
                  mask=False, climate='current', print_sequential=True,
@@ -46,41 +73,6 @@ class dl_training:
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10):
-        
-        
-        """Class instantiation of dl_training:
-            
-        Build and train a deep convolutional neural network using previously created imported data.
-            
-        Attributes:
-            working_directory (str): Directory path to save DL model.
-            dlfile_directory (str): Directory path where train data is stored.
-            variables (str): Numpy array of variable name strings.
-            model_num (int): Number assignment for the model.
-            mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
-            climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
-            print_sequential (boolean): Whether to print the sequetial steps occurring during training. Defaults to ``True``.
-            conv_1_mapnum (int): Number of activation maps in first conv layer. Defaults to 32.
-            conv_2_mapnum (int): Number of activation maps in second conv layer. Defaults to 68.
-            conv_3_mapnum (int): Number of activation maps in third conv layer. Defaults to 128.
-            acti_1_func (str): Activation function to apply to first conv layer. Defaults to ``relu``.
-            acti_2_func (str): Activation function to apply to second conv layer. Defaults to ``relu``.
-            acti_3_func (str): Activation function to apply to third conv layer. Defaults to ``relu``.
-            filter_width (int): Width of sliding filter to apply to conv layers. Defaults to 5.
-            learning_rate (float): Learning rate to use for Adam optimizer. Defaults to 0.0001.
-            output_func_and_loss (str): The activation function to apply to the output layer and the loss function to use in training. 
-                                        Defaults to ``sigmoid_mse`` [sigmoid activation function and mean squared error loss function]).
-            strides_len (int): The length of strides to use when sliding the filter. Defaults to 1.
-            validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
-            batch_size (int): Size of batches used during training. Defaults to 128.
-            epochs (int): The number of epochs to run through during training. Defaults to 10.
-            
-        Todo:
-            * Add pool_method attribute; a method to use for pooling layers (str; default mean [also have max]).
-            * Add batch_norm attribute; whether to apply batch normalization after every conv layer (boolean; default True).
-            * Add spatial_drop attribute; whether to apply spatial dropout (30%) after every conv layer (boolean; default True).
-        
-        """
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
@@ -146,8 +138,8 @@ class dl_training:
             
         Raises:
             ValueError: If provided variable is not available.
+            
         """
-        
         var={
                'EU':'EU',
                'EV':'EV',
@@ -161,7 +153,6 @@ class dl_training:
                'UH25':'UH25',
                'UH03':'UH03',
               }
-        
         try:
             out=var[variable]
             return out
