@@ -47,8 +47,8 @@ class split_and_standardize:
 
         if climate != 'current' and climate != 'future':
             raise Exception("Please enter current or future for climate option.")
-        if climate == 'current' or climate == 'future':
-            self.climate = climate
+        if climate=='current' or climate=='future':
+            self.climate=climate
             
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03':
@@ -56,94 +56,94 @@ class split_and_standardize:
             
         if variable=='TK' or variable=='EV' or variable=='EU' or variable=='QVAPOR' or variable=='PRESS' or variable=='W_vert' or \
         variable=='WMAX' or variable=='DBZ' or variable=='CTT' or variable=='UH25' or variable=='UH03':
-            self.variable = variable
+            self.variable=variable
             
-            if self.variable == "TK":
-                self.choice_var1 = "temp_sev_1"
-                self.choice_var3 = "temp_sev_3"
-                self.choice_var5 = "temp_sev_5"
-                self.choice_var7 = "temp_sev_7"
-                self.attrs_array = np.array(["tk_1km", "tk_3km", "tk_5km", "tk_7km"])
-                self.single = False
+            if self.variable=="TK":
+                self.choice_var1="temp_sev_1"
+                self.choice_var3="temp_sev_3"
+                self.choice_var5="temp_sev_5"
+                self.choice_var7="temp_sev_7"
+                self.attrs_array=np.array(["tk_1km", "tk_3km", "tk_5km", "tk_7km"])
+                self.single=False
 
-            if self.variable == "EV":
-                self.choice_var1 = "evwd_sev_1"
-                self.choice_var3 = "evwd_sev_3"
-                self.choice_var5 = "evwd_sev_5"
-                self.choice_var7 = "evwd_sev_7"
-                self.attrs_array = np.array(["ev_1km", "ev_3km", "ev_5km", "ev_7km"])
-                self.single = False
+            if self.variable=="EV":
+                self.choice_var1="evwd_sev_1"
+                self.choice_var3="evwd_sev_3"
+                self.choice_var5="evwd_sev_5"
+                self.choice_var7="evwd_sev_7"
+                self.attrs_array=np.array(["ev_1km", "ev_3km", "ev_5km", "ev_7km"])
+                self.single=False
 
-            if self.variable == "EU":
-                self.choice_var1 = "euwd_sev_1"
-                self.choice_var3 = "euwd_sev_3"
-                self.choice_var5 = "euwd_sev_5"
-                self.choice_var7 = "euwd_sev_7"
-                self.attrs_array = np.array(["eu_1km", "eu_3km", "eu_5km", "eu_7km"])
-                self.single = False
+            if self.variable=="EU":
+                self.choice_var1="euwd_sev_1"
+                self.choice_var3="euwd_sev_3"
+                self.choice_var5="euwd_sev_5"
+                self.choice_var7="euwd_sev_7"
+                self.attrs_array=np.array(["eu_1km", "eu_3km", "eu_5km", "eu_7km"])
+                self.single=False
 
-            if self.variable == "QVAPOR":
-                self.choice_var1 = "qvap_sev_1"
-                self.choice_var3 = "qvap_sev_3"
-                self.choice_var5 = "qvap_sev_5"
-                self.choice_var7 = "qvap_sev_7"
-                self.attrs_array = np.array(["qv_1km", "qv_3km", "qv_5km", "qv_7km"])
-                self.single = False
+            if self.variable=="QVAPOR":
+                self.choice_var1="qvap_sev_1"
+                self.choice_var3="qvap_sev_3"
+                self.choice_var5="qvap_sev_5"
+                self.choice_var7="qvap_sev_7"
+                self.attrs_array=np.array(["qv_1km", "qv_3km", "qv_5km", "qv_7km"])
+                self.single=False
 
-            if self.variable == "PRESS":
-                self.choice_var1 = "pres_sev_1"
-                self.choice_var3 = "pres_sev_3"
-                self.choice_var5 = "pres_sev_5"
-                self.choice_var7 = "pres_sev_7"
-                self.attrs_array = np.array(["pr_1km", "pr_3km", "pr_5km", "pr_7km"])
-                self.single = False
+            if self.variable=="PRESS":
+                self.choice_var1="pres_sev_1"
+                self.choice_var3="pres_sev_3"
+                self.choice_var5="pres_sev_5"
+                self.choice_var7="pres_sev_7"
+                self.attrs_array=np.array(["pr_1km", "pr_3km", "pr_5km", "pr_7km"])
+                self.single=False
 
-            if self.variable == "W_vert":
-                self.choice_var1 = "wwnd_sev_1"
-                self.choice_var3 = "wwnd_sev_3"
-                self.choice_var5 = "wwnd_sev_5"
-                self.choice_var7 = "wwnd_sev_7"
-                self.attrs_array = np.array(["ww_1km", "ww_3km", "ww_5km", "ww_7km"])
-                self.single = False
+            if self.variable=="W_vert":
+                self.choice_var1="wwnd_sev_1"
+                self.choice_var3="wwnd_sev_3"
+                self.choice_var5="wwnd_sev_5"
+                self.choice_var7="wwnd_sev_7"
+                self.attrs_array=np.array(["ww_1km", "ww_3km", "ww_5km", "ww_7km"])
+                self.single=False
 
-            if self.variable == "WMAX":
-                self.choice_var1 = "maxw_sev_1"
-                self.attrs_array = np.array(["maxw"]) 
-                self.single = True
+            if self.variable=="WMAX":
+                self.choice_var1="maxw_sev_1"
+                self.attrs_array=np.array(["maxw"]) 
+                self.single=True
                 
-            if self.variable == "DBZ":
-                self.choice_var1 = "dbzs_sev_1"
-                self.attrs_array = np.array(["dbzs"])
-                self.single = True
+            if self.variable=="DBZ":
+                self.choice_var1="dbzs_sev_1"
+                self.attrs_array=np.array(["dbzs"])
+                self.single=True
                 
-            if self.variable == "CTT":
-                self.choice_var1 = "ctts_sev_1"
-                self.attrs_array = np.array(["ctts"]) 
-                self.single = True
+            if self.variable=="CTT":
+                self.choice_var1="ctts_sev_1"
+                self.attrs_array=np.array(["ctts"]) 
+                self.single=True
                 
-            if self.variable == "UH25":
-                self.choice_var1 = "uh25_sev_1"
-                self.attrs_array = np.array(["uh25"]) 
-                self.single = True
+            if self.variable=="UH25":
+                self.choice_var1="uh25_sev_1"
+                self.attrs_array=np.array(["uh25"]) 
+                self.single=True
                 
-            if self.variable == "UH03":
-                self.choice_var1 = "uh03_sev_1"
-                self.attrs_array = np.array(["uh03"])    
-                self.single = True
+            if self.variable=="UH03":
+                self.choice_var1="uh03_sev_1"
+                self.attrs_array=np.array(["uh03"])    
+                self.single=True
             
         if percent_split>=1:
             raise Exception("Percent split should be a float less than 1.")
         if percent_split<1:
-            self.percent_split = percent_split
+            self.percent_split=percent_split
             
-        self.working_directory = working_directory
-        self.threshold1 = threshold1
+        self.working_directory=working_directory
+        self.threshold1=threshold1
         
-        self.mask = mask
+        self.mask=mask
         if not self.mask:
-            self.mask_str = 'nomask'
+            self.mask_str='nomask'
         if self.mask:
-            self.mask_str = 'mask'
+            self.mask_str='mask'
     
     
 
@@ -158,7 +158,7 @@ class split_and_standardize:
             ValueError: Input variable must be from available list.
         
         """
-        var = {
+        var={
                'EU':'EU',
                'EV':'EV',
                'TK':'TK',
@@ -172,7 +172,7 @@ class split_and_standardize:
                'UH03':'UH03',
               }
         try:
-            out = var[self.variable]
+            out=var[self.variable]
             return out
         except:
             raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
@@ -187,25 +187,25 @@ class split_and_standardize:
             data (Xarray dataset): Concatenated six months of data.
         
         """
-        data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
+        data_dec=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
                                            parallel=True, combine='by_coords')
-        data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
+        data_jan=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
                                            parallel=True, combine='by_coords')
-        data_feb = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_02.nc", 
+        data_feb=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_02.nc", 
                                            parallel=True, combine='by_coords')
-        data_mar = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_03.nc", 
+        data_mar=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_03.nc", 
                                            parallel=True, combine='by_coords')
-        data_apr = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_04.nc", 
+        data_apr=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_04.nc", 
                                            parallel=True, combine='by_coords')
-        data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
+        data_may=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
                                            parallel=True, combine='by_coords')
-        data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
-        data_dec = data_dec.close()
-        data_jan = data_jan.close()
-        data_feb = data_feb.close()
-        data_mar = data_mar.close()
-        data_apr = data_apr.close()
-        data_may = data_may.close()
+        data=xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        data_dec=data_dec.close()
+        data_jan=data_jan.close()
+        data_feb=data_feb.close()
+        data_mar=data_mar.close()
+        data_apr=data_apr.close()
+        data_may=data_may.close()
         return data
     
     
@@ -218,25 +218,25 @@ class split_and_standardize:
             data (Xarray dataset): Concatenated six months of data.
             
         """        
-        data_dec = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_12.nc",
+        data_dec=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_12.nc",
                                           parallel=True, combine='by_coords')
-        data_jan = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_01.nc",
+        data_jan=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_01.nc",
                                            parallel=True, combine='by_coords')
-        data_feb = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_02.nc",
+        data_feb=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_02.nc",
                                            parallel=True, combine='by_coords')
-        data_mar = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_03.nc",
+        data_mar=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_03.nc",
                                            parallel=True, combine='by_coords')
-        data_apr = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_04.nc",
+        data_apr=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_04.nc",
                                            parallel=True, combine='by_coords')
-        data_may = xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_05.nc",
+        data_may=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_05.nc",
                                            parallel=True, combine='by_coords')
-        data = xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
-        data_dec = data_dec.close()
-        data_jan = data_jan.close()
-        data_feb = data_feb.close()
-        data_mar = data_mar.close()
-        data_apr = data_apr.close()
-        data_may = data_may.close()
+        data=xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        data_dec=data_dec.close()
+        data_jan=data_jan.close()
+        data_feb=data_feb.close()
+        data_mar=data_mar.close()
+        data_apr=data_apr.close()
+        data_may=data_may.close()
         return data
 
 
@@ -253,13 +253,13 @@ class split_and_standardize:
             
         """
         if not self.single:
-            data_1 = data[self.choice_var1].values
-            data_2 = data[self.choice_var3].values
-            data_3 = data[self.choice_var5].values
-            data_4 = data[self.choice_var7].values
+            data_1=data[self.choice_var1].values
+            data_2=data[self.choice_var3].values
+            data_3=data[self.choice_var5].values
+            data_4=data[self.choice_var7].values
             return data_1, data_2, data_3, data_4
         if self.single:
-            data_1 = data[self.choice_var1].values
+            data_1=data[self.choice_var1].values
             return data_1
         
         
@@ -287,50 +287,51 @@ class split_and_standardize:
         """
         #train above
         np.random.seed(0)
-        select_data = np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
-        train_above = data_a[select_data]
+        select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
+        train_above=data_a[select_data]
         #train below
         np.random.seed(0)
-        select_data = np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*self.percent_split)]
-        train_below = data_b[select_data]
+        select_data=np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*self.percent_split)]
+        train_below=data_b[select_data]
         #test above
         np.random.seed(0)
-        select_data = np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
-        test_above = data_a[select_data]
+        select_data=np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
+        test_above=data_a[select_data]
         #test below
         np.random.seed(0)
         #slicing to get respective ratio of above to below UH data patches
-        select_data = np.random.permutation(
-            data_b.shape[0])[int(data_a.shape[0]*self.percent_split):int((((data_a.shape[0]*(1-self.percent_split))*data_b.shape[0])/data_a.shape[0])+(data_a.shape[0]*(1-self.percent_split)))]
-        test_below = data_b[select_data]
+        select_data=np.random.permutation(
+            data_b.shape[0])[int(data_a.shape[0] * self.percent_split):int((((data_a.shape[0] * (1-self.percent_split)) * data_b.shape[0]) \
+                                                                            / data_a.shape[0]) + (data_a.shape[0] * (1 - self.percent_split)))]
+        test_below=data_b[select_data]
 
         #create the label data
-        train_above_label = np.ones(train_above.shape[0])
-        train_below_label = np.zeros(train_below.shape[0])
-        test_above_label = np.ones(test_above.shape[0])
-        test_below_label = np.zeros(test_below.shape[0])
+        train_above_label=np.ones(train_above.shape[0])
+        train_below_label=np.zeros(train_below.shape[0])
+        test_above_label=np.ones(test_above.shape[0])
+        test_below_label=np.zeros(test_below.shape[0])
 
         #merge above and below data in prep to shuffle/permute
-        train_data = np.vstack([train_above, train_below])
+        train_data=np.vstack([train_above, train_below])
         if return_label:
-            train_label = np.hstack([train_above_label, train_below_label])
-        test_data = np.vstack([test_above, test_below])
+            train_label=np.hstack([train_above_label, train_below_label])
+        test_data=np.vstack([test_above, test_below])
         if return_label:
-            test_label = np.hstack([test_above_label, test_below_label])
+            test_label=np.hstack([test_above_label, test_below_label])
 
         #finally, permute the data that has been merged and properly balanced
         np.random.seed(10)
-        train_data = np.random.permutation(train_data)
+        train_data=np.random.permutation(train_data)
         np.random.seed(10)
-        test_data = np.random.permutation(test_data)
+        test_data=np.random.permutation(test_data)
         
         if not return_label:
             return train_data, test_data  
         if return_label:
             np.random.seed(10)
-            train_label = np.random.permutation(train_label)
+            train_label=np.random.permutation(train_label)
             np.random.seed(10)
-            test_label = np.random.permutation(test_label)    
+            test_label=np.random.permutation(test_label)    
             return train_data, test_data, train_label, test_label
 
 
@@ -347,7 +348,7 @@ class split_and_standardize:
         
         """
         from sklearn.preprocessing import MinMaxScaler
-        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaler=MinMaxScaler(feature_range=(0, 1))
         scaler.fit(data)
         return scaler.transform(data)
     
@@ -366,7 +367,7 @@ class split_and_standardize:
         
         """
         from sklearn.preprocessing import MinMaxScaler
-        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaler=MinMaxScaler(feature_range=(0, 1))
         scaler.fit(train)
         return scaler.transform(test)
 
@@ -426,13 +427,13 @@ class split_and_standardize:
         
         """
         if not self.single:
-            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, return_label=True)
-            train2, test2 = self.create_traintest_data(below2, above2, return_label=False)
-            train3, test3 = self.create_traintest_data(below3, above3, return_label=False)
-            train4, test4 = self.create_traintest_data(below4, above4, return_label=False)
+            train1, test1, train_label, test_label=self.create_traintest_data(below1, above1, return_label=True)
+            train2, test2=self.create_traintest_data(below2, above2, return_label=False)
+            train3, test3=self.create_traintest_data(below3, above3, return_label=False)
+            train4, test4=self.create_traintest_data(below4, above4, return_label=False)
             return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
         if self.single:
-            train1, test1, train_label, test_label = self.create_traintest_data(below1, above1, return_label=True)
+            train1, test1, train_label, test_label=self.create_traintest_data(below1, above1, return_label=True)
             return train1, test1, train_label, test_label
         
 
@@ -452,11 +453,11 @@ class split_and_standardize:
             data_scaled1, data_scaled2, data_scaled3, data_scaled4 or data_scaled1 (numpy array(s)): The training data standardized.
             
         """
-        data_scaled1 = func(data1)
+        data_scaled1=func(data1)
         if not self.single:
-            data_scaled2 = func(data2)
-            data_scaled3 = func(data3)
-            data_scaled4 = func(data4)
+            data_scaled2=func(data2)
+            data_scaled3=func(data3)
+            data_scaled4=func(data4)
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
         if self.single:
             return data_scaled1
@@ -483,11 +484,11 @@ class split_and_standardize:
             data1, data2, data3, data4 or data1 (numpy array(s)): The testing data standardized.
             
         """
-        data1 = func(train1, test1)
+        data1=func(train1, test1)
         if not self.single:
-            data2 = func(train2, test2)
-            data3 = func(train3, test3)
-            data4 = func(train4, test4)
+            data2=func(train2, test2)
+            data3=func(train3, test3)
+            data4=func(train4, test4)
             return data1, data2, data3, data4
         if self.single:
             return data1
@@ -509,7 +510,7 @@ class split_and_standardize:
             
         """
         if not self.single:
-            totaldata = np.stack([data1, data2, data3, data4])
+            totaldata=np.stack([data1, data2, data3, data4])
             return totaldata
 
 
@@ -527,7 +528,7 @@ class split_and_standardize:
             
         """
         if not self.single: 
-            data_assemble = xr.Dataset({
+            data_assemble=xr.Dataset({
                 'X_train':(['features','a','x','y'], train_data),
                 'X_train_label':(['a'], train_label),
                 'X_test':(['features','b','x','y'], test_data),
@@ -537,7 +538,7 @@ class split_and_standardize:
                 {'feature':(['features'],self.attrs_array),
                 })
         if self.single:
-            data_assemble = xr.Dataset({
+            data_assemble=xr.Dataset({
                 'X_train':(['a','x','y'], train_data),
                 'X_train_label':(['a'], train_label),
                 'X_test':(['b','x','y'], test_data),
@@ -557,35 +558,35 @@ class split_and_standardize:
         
         """
         print("Opening files...")
-        data_above = self.open_above_threshold()
-        data_below = self.open_below_threshold()
+        data_above=self.open_above_threshold()
+        data_below=self.open_below_threshold()
 
         if not self.single:
         
             print("Grabbing variables...")
-            above_1, above_2, above_3, above_4 = self.grab_variables(data_above)
-            below_1, below_2, below_3, below_4 = self.grab_variables(data_below)
+            above_1, above_2, above_3, above_4=self.grab_variables(data_above)
+            below_1, below_2, below_3, below_4=self.grab_variables(data_below)
             
-            data_above = data_above.close()
-            data_below = data_below.close()
+            data_above=data_above.close()
+            data_below=data_below.close()
             
             print("Splitting data...")
-            train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label = self.split_data_to_traintest(
+            train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label=self.split_data_to_traintest(
                 below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4)
             
             above_1=None; above_2=None; above_3=None; above_4=None
             below_1=None; below_2=None; below_3=None; below_4=None
 
             print("Standardizing testing...")
-            test1, test2, test3, test4 = self.standardize_testing(
+            test1, test2, test3, test4=self.standardize_testing(
                 self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4)
             
             print("Standardizing training...")
-            train1, train2, train3, train4 = self.standardize_training(self.standardize_scale_apply, train1, train2, train3, train4)
+            train1, train2, train3, train4=self.standardize_training(self.standardize_scale_apply, train1, train2, train3, train4)
             
             print("Stacking files...")
-            Xtrain = self.stack_the_data(train1, train2, train3, train4)
-            Xtest = self.stack_the_data(test1, test2, test3, test4)
+            Xtrain=self.stack_the_data(train1, train2, train3, train4)
+            Xtest=self.stack_the_data(test1, test2, test3, test4)
 
             train1=None; train2=None; train3=None; train4=None
             test1=None;  test2=None;  test3=None;  test4=None
@@ -593,26 +594,26 @@ class split_and_standardize:
         if self.single:
             
             print("Grabbing variables...")
-            above_1 = self.grab_variables(data_above)
-            below_1 = self.grab_variables(data_below)   
+            above_1=self.grab_variables(data_above)
+            below_1=self.grab_variables(data_below)   
             
-            data_above = data_above.close()
-            data_below = data_below.close()
+            data_above=data_above.close()
+            data_below=data_below.close()
             
             print("Splitting data...")
-            train1, test1, train_label, test_label = self.split_data_to_traintest(below1=below_1, above1=above_1)
+            train1, test1, train_label, test_label=self.split_data_to_traintest(below1=below_1, above1=above_1)
             
             above_1=None; below_1=None
 
             print("Standardizing testing...")
-            test1 = self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
+            test1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
             
             print("Standardizing training...")
-            train1 = self.standardize_training(self.standardize_scale_apply, data1=train1)
+            train1=self.standardize_training(self.standardize_scale_apply, data1=train1)
             
             print("Stacking files...")
-            Xtrain = train1
-            Xtest = test1
+            Xtrain=train1
+            Xtest=test1
 
             train1=None; test1=None
         
