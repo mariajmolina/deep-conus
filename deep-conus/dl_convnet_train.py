@@ -81,7 +81,6 @@ class dl_training:
             * Add spatial_drop attribute; whether to apply spatial dropout (30%) after every conv layer (boolean; default True).
         
         """
-        
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
