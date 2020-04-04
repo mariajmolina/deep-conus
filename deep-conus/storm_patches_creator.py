@@ -1,28 +1,17 @@
-###########################################################################
-###########################################################################
-#
-# Maria J. Molina
-# National Center for Atmospheric Research
-#
-###########################################################################
-###########################################################################
-
-
-#--------------------------------------------------------------------------
-
 import numpy as np
 import xarray as xr
 import pandas as pd
 from datetime import timedelta
+import calendar
+
 import multiprocessing as mp
+
 import cartopy.io.shapereader as shpreader
 import shapely.geometry as sgeom
 from shapely.ops import unary_union
 from shapely.prepared import prep
-import calendar
-from hagelslag.hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
-#--------------------------------------------------------------------------
+from hagelslag.hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
 
 class storm_patch_creator:
@@ -91,7 +80,6 @@ class storm_patch_creator:
         self.num_cpus=num_cpus
         
         
-        
     def variable_translate(self):
         
         """Variable name for the respective filenames.
@@ -117,7 +105,6 @@ class storm_patch_creator:
             return out
         except:
             raise ValueError("Please enter TK, EU, EV, QVAPOR, PRESS, W_vert, or WMAX as variable.")
-        
 
         
     def generate_timestring(self):
@@ -132,7 +119,6 @@ class storm_patch_creator:
         return pd.date_range(self.date1, self.date2, freq='D')
 
     
-    
     def total_pixels(self):
         
         """Function to help compute the total number of grid boxes (or pixels) in a storm patch.
@@ -142,7 +128,6 @@ class storm_patch_creator:
             
         """
         return (self.patch_radius*2)*(self.patch_radius*2)
-    
     
 
     def time_slice_help(self, month):
@@ -168,7 +153,6 @@ class storm_patch_creator:
         return mon_1, mon_2
     
     
-
     def prep_land(self):
         
         """Function to generate landmass that will be used for identifying storms that occur over land and over water.
@@ -180,7 +164,6 @@ class storm_patch_creator:
         land_shp_fname=shpreader.natural_earth(resolution='50m', category='physical', name='land')
         land_geom=unary_union(list(shpreader.Reader(land_shp_fname).geometries()))
         return prep(land_geom) 
-    
     
     
     def is_land(self, land, x, y):
@@ -198,7 +181,6 @@ class storm_patch_creator:
         return land.contains(sgeom.Point(x, y))
     
 
-    
     def parallelizing_hourly_func(self):
         
         """Function to create the hourly storm patches using ``dbz``. Here, we activate the multiprocessing function, 
@@ -234,7 +216,6 @@ class storm_patch_creator:
         pool.close()
         pool.join()
         print("completed")
-
 
     
     def create_patches_hourly(self, num, data, lats, lons, thetimes, times_thisfile):
@@ -285,7 +266,6 @@ class storm_patch_creator:
             })
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc")
         return(num)
-    
     
     
     def create_patches_3H(self, datetime_value):
@@ -387,7 +367,6 @@ class storm_patch_creator:
         return
         
         
-
     def parallelizing_3hourly_func(self):
             
         """Activate the multiprocessing function and parallelize the creation of 3-hourly storm patches for efficiency.
@@ -402,7 +381,6 @@ class storm_patch_creator:
         pool.join()
         print("completed")
 
-        
         
     def create_patches_variable(self, datetime_value):
 
@@ -514,7 +492,6 @@ class storm_patch_creator:
         print(f"completed {datetime_value.strftime('%Y%m%d')}")
         return
 
-    
     
     def parallelizing_3Hvariable_func(self):
             

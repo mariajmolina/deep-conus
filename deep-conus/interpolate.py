@@ -1,21 +1,5 @@
-###################################################
-###################################################
-##
-##  Author: Maria J. Molina
-##  National Center for Atmospheric Research
-##
-###################################################
-###################################################
-
-
-#--------------------------------------------------
-
 import xarray as xr
 import numpy as np
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
-
-#--------------------------------------------------
 
 
 class interpolate_variable:
@@ -39,7 +23,6 @@ class interpolate_variable:
         cluster_max (str): The maximum number of nodes to initiate for adaptive dask job. Defaults to 40.
 
     """
-        
         
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
                  rda_path='/gpfs/fs1/collections/rda/data/ds612.0/',
@@ -84,7 +67,6 @@ class interpolate_variable:
                 self.cluster_max=cluster_max
 
     
-
     def open_files(self, year, month):
     
         """Helper function to open data sets for interpolation calculation for current climate.
@@ -143,12 +125,13 @@ class interpolate_variable:
         return data_AGL, data_var
 
 
-
     def activate_workers(self):
         
         """Function to activate dask workers.
         
         """
+        from ncar_jobqueue import NCARCluster
+        from dask.distributed import Client
         #start dask workers
         cluster=NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
@@ -158,7 +141,6 @@ class interpolate_variable:
         #start client
         client=Client(cluster)
         client
-
 
 
     def generate_timestrings(self):
@@ -175,7 +157,6 @@ class interpolate_variable:
         formatter="{:04d}".format
         years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
-
 
 
     def create_the_interp_files(self):
@@ -205,7 +186,6 @@ class interpolate_variable:
                 print(f"woohoo! {yr} {mo} complete")
 
 
-
     def create_the_max_files(self):
 
         """Automate the work pipeline and sequence of functions to be run to create the maximum value files.
@@ -232,7 +212,6 @@ class interpolate_variable:
                 print(f"woohoo! {yr} {mo} complete")
 
 
-
 def wrf_interp(data_AGL, data_var):
 
     """Function to compute interpolation using wrf-python.
@@ -251,7 +230,6 @@ def wrf_interp(data_AGL, data_var):
     return (wrf.interplevel(data_var.squeeze(),
                             data_AGL.squeeze(),
                             [1000,3000,5000,7000]).expand_dims("Time"))
-
 
 
 def apply_wrf_interp(data_AGL, data_var):
@@ -275,7 +253,6 @@ def apply_wrf_interp(data_AGL, data_var):
                           output_core_dims=[['level','south_north','west_east']])
 
 
-
 def apply_wrf_interp_W(data_AGL, data_var):
 
     """Generate Xarray ufunc to parallelize the wrf-python interpolation computation.
@@ -295,9 +272,4 @@ def apply_wrf_interp_W(data_AGL, data_var):
                                            ['bottom_top_stag','south_north','west_east']],
                           output_sizes=dict(level=4, south_north=1015, west_east=1359),
                           output_core_dims=[['level','south_north','west_east']])
-
-
-
-
-
 

@@ -1,21 +1,5 @@
-#####################################################################################
-#####################################################################################
-#
-# Author: Maria J. Molina
-# National Center for Atmospheric Research
-#
-#####################################################################################
-#####################################################################################
-
-
-#------------------------------------------------------
-
 import xarray as xr
 import numpy as np
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
-
-#------------------------------------------------------
 
 
 class compute_variable:
@@ -42,7 +26,6 @@ class compute_variable:
 
     """
     
-
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination,
                  rda_path='/gpfs/fs1/collections/rda/data/ds612.0/',
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40, 
@@ -89,7 +72,6 @@ class compute_variable:
         self.dy=dy
         self.uh_bottom=uh_bottom
         self.uh_top=uh_top
-
 
 
     def open_files(self, year, month):
@@ -188,12 +170,13 @@ class compute_variable:
             return data_zstag, data_wstag, data_ustag, data_vstag, data_mapfc
 
 
-
     def activate_workers(self):
         
         """Function to activate dask workers.
         
         """
+        from ncar_jobqueue import NCARCluster
+        from dask.distributed import Client
         #start dask workers
         cluster=NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
@@ -203,7 +186,6 @@ class compute_variable:
         #start client
         client=Client(cluster)
         client
-
 
 
     def generate_timestrings(self):
@@ -220,7 +202,6 @@ class compute_variable:
         formatter="{:04d}".format
         years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
-
 
 
     def create_the_variable_files(self):
@@ -290,7 +271,6 @@ class compute_variable:
                     print(f"woohoo! {yr} {mo} complete")
 
 
-
 def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag):
     
     """Function to compute ``cape``, ``cin``, ``lcl``, and ``lfc`` using wrf-python.
@@ -351,7 +331,6 @@ def apply_wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, d
                           output_core_dims=[['mcape_mcin_lcl_lfc','south_north','west_east']])
                           
 
-
 def wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag):
     
     """Function to compute ``ctt`` using wrf-python.
@@ -381,7 +360,6 @@ def wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag
                     data_icestag.squeeze(), 
                     fill_nocloud=False, missing=9.969209968386869e+36, opt_thresh=1.0, 
                     meta=True, units='degC').expand_dims("Time"))
-
 
 
 def apply_wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag):
@@ -415,7 +393,6 @@ def apply_wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data
                           output_sizes=dict(south_north=1015, west_east=1359),
                           output_core_dims=[['south_north','west_east']])
 
-                
 
 def wrf_UH(z, mapfc, u, v, w, dx, dy, bottom, top):
     
@@ -439,7 +416,6 @@ def wrf_UH(z, mapfc, u, v, w, dx, dy, bottom, top):
     import wrf
     return (wrf.udhel( z.squeeze(), mapfc, u.squeeze(), v.squeeze(), w.squeeze(), \
                       dx=dx, dy=dy, bottom=bottom, top=top, meta=True).expand_dims("Time"))
-
 
 
 def apply_wrf_UH(data_zstag, data_mapfc, data_ustag, data_vstag, data_wstag, dx, dy, bottom, top):
@@ -469,5 +445,4 @@ def apply_wrf_UH(data_zstag, data_mapfc, data_ustag, data_vstag, data_wstag, dx,
                                            [None], [None], [None], [None]],
                           output_sizes=dict(south_north=1015,west_east=1359),
                           output_core_dims=[['south_north','west_east']])
-
 

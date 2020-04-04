@@ -1,21 +1,8 @@
-#####################################################################################
-#####################################################################################
-#
-# Author: Maria J. Molina
-# National Center for Atmospheric Research
-#
-#####################################################################################
-#####################################################################################
-
-
-#-----------------------------
-
 import numpy as np
 import xarray as xr
 import pandas as pd
-import multiprocessing as mp
 
-#-----------------------------
+import multiprocessing as mp
 
 
 class preprocess_data:
@@ -69,7 +56,6 @@ class preprocess_data:
         self.num_cpus=num_cpus
 
 
-
     def generate_time_full(self):
         
         """Creation of the full time period that will be looped through for extracting storm patch information.
@@ -86,7 +72,6 @@ class preprocess_data:
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==3)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==4)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==5)]
-
 
 
     def create_data_indices(self, time):
@@ -115,8 +100,7 @@ class preprocess_data:
             if self.mask:
                 ###
                 return
-                
-                
+                         
                 
     def parallelizing_indxs(self):
         
@@ -132,8 +116,7 @@ class preprocess_data:
         pool1.close()
         pool1.join()
         print(f"Completed the jobs.")
-
-            
+ 
             
     def generate_time_month(self, month_int):
         
@@ -147,7 +130,6 @@ class preprocess_data:
             
         """
         return pd.date_range('2000-10-01','2013-09-30',freq='MS')[(pd.date_range('2000-10-01','2013-09-30',freq='MS').month==month_int)]
-    
     
             
     def apply_exceed_mask(self, data_var, data_mask, level):
@@ -166,7 +148,6 @@ class preprocess_data:
         return data_var.var_grid.sel(levels=level)[data_mask.grid.values,:,:]
     
     
-    
     def apply_notexceed_mask(self, data_var, data_mask, level):
 
         """Function to retain the patches that did not exceed the threshold.
@@ -183,7 +164,6 @@ class preprocess_data:
         return np.delete(data_var.var_grid.sel(levels=level).values, data_mask.grid.values, axis=0)
     
     
-    
     def flatten_list(self, array):
         
         """Function to flatten the created list of Xarray data arrays.
@@ -196,7 +176,6 @@ class preprocess_data:
         
         """
         return [j for i in array for j in i.values]
-    
     
     
     def flatten_arraylist(self, array):
@@ -212,7 +191,6 @@ class preprocess_data:
         """
         return [j for i in array for j in i]
 
-        
         
     def month_translate(self, num):
         
@@ -240,7 +218,6 @@ class preprocess_data:
         except:
             raise ValueError("Please enter month integer from Dec-May.")
             
-            
         
     def run_months(self, months=np.array([12,1,2,3,4,5]), uh=True, nouh=True):
         
@@ -262,7 +239,6 @@ class preprocess_data:
                 pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
         print(f"Completed the jobs.")
         
-            
 
     def create_files_exceed_threshold(self, month_int):
         
@@ -395,7 +371,6 @@ class preprocess_data:
         print(f"Exceedances for {time.strftime('%m')} complete...")
 
 
-
     def create_files_notexceed_threshold(self, month_int):
 
         """Create files containing environment patches for storms that did not exceed the threshold.
@@ -525,5 +500,4 @@ class preprocess_data:
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
         print(f"Non exceedances for {time.strftime('%m')} complete...")
-
 

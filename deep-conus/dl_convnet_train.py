@@ -1,15 +1,3 @@
-#####################################################################################
-#####################################################################################
-#
-# Author: Maria J. Molina
-# National Center for Atmospheric Research
-#
-#####################################################################################
-#####################################################################################
-
-
-#----------------------------------------------------------
-
 import keras
 import tensorflow as tf
 from keras import backend as K
@@ -26,9 +14,6 @@ from sklearn.metrics import mean_squared_error, roc_auc_score
 import xarray as xr
 import numpy as np
 import pandas as pd
-
-#----------------------------------------------------------
-
 
 
 class dl_training:
@@ -125,7 +110,6 @@ class dl_training:
         self.epochs=epochs
         
         
-        
     def variable_translate(self, variable):
         
         """Variable name for the respective filenames.
@@ -159,7 +143,6 @@ class dl_training:
         except:
             raise ValueError("Please enter TK, EV, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, or DBZ as variable.")
             
-            
 
     def initiate_session(self):
         
@@ -172,7 +155,6 @@ class dl_training:
                                             # (nothing gets printed in Jupyter, only if you run it standalone)
         sess=tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
-    
     
     
     def open_files(self):
@@ -188,7 +170,6 @@ class dl_training:
             datas[var]=xr.open_dataset(f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
         return datas
 
-        
 
     def transpose_load_concat(self, **kwargs):
         
@@ -212,7 +193,6 @@ class dl_training:
             X_train=np.squeeze(np.asarray(list(thedatas.values())))
         return X_train, label
 
-
         
     def omit_nans(self, data, label):
 
@@ -233,7 +213,6 @@ class dl_training:
         traindata=data[maskarray,:,:,:]
         trainlabel=label[maskarray]
         return traindata, trainlabel
-
 
 
     def compile_meanpool_model(self, data):
@@ -337,7 +316,6 @@ class dl_training:
         return model
         
         
-        
     def train_dl(self, model, data, label):
         
         """Train the compiled DL model, save the trained model, and save the history and metric information from training to 
@@ -357,7 +335,6 @@ class dl_training:
                             shuffle=True)
         pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
         save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
-    
     
 
     def sequence_funcs(self):
@@ -387,5 +364,4 @@ class dl_training:
         train_data=None
         label_data=None
         
-    
     

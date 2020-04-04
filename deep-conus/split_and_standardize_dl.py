@@ -1,21 +1,5 @@
-#####################################################################################
-#####################################################################################
-#
-# Author: Maria J. Molina
-# National Center for Atmospheric Research
-#
-#####################################################################################
-#####################################################################################
-
-
-#----------------------------------------------------------
-
 import xarray as xr
 import numpy as np
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
-
-#----------------------------------------------------------
 
 
 class split_and_standardize:
@@ -145,7 +129,6 @@ class split_and_standardize:
         if self.mask:
             self.mask_str='mask'
     
-    
 
     def variable_translate(self):
         
@@ -178,7 +161,6 @@ class split_and_standardize:
             raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
         
     
-    
     def open_above_threshold(self):
         
         """Open and concat files for the six months of analysis (threshold exceedance).
@@ -207,7 +189,6 @@ class split_and_standardize:
         data_apr=data_apr.close()
         data_may=data_may.close()
         return data
-    
     
         
     def open_below_threshold(self):
@@ -239,7 +220,6 @@ class split_and_standardize:
         data_may=data_may.close()
         return data
 
-
         
     def grab_variables(self, data):
         
@@ -261,7 +241,6 @@ class split_and_standardize:
         if self.single:
             data_1=data[self.choice_var1].values
             return data_1
-        
         
         
     def create_traintest_data(self, data_b, data_a, return_label=False):
@@ -334,7 +313,6 @@ class split_and_standardize:
             test_label=np.random.permutation(test_label)    
             return train_data, test_data, train_label, test_label
 
-
     
     def minmax_scale_apply(self, data):
         
@@ -351,7 +329,6 @@ class split_and_standardize:
         scaler=MinMaxScaler(feature_range=(0, 1))
         scaler.fit(data)
         return scaler.transform(data)
-    
     
     
     def minmax_scale_apply_test(self, train, test):
@@ -371,7 +348,6 @@ class split_and_standardize:
         scaler.fit(train)
         return scaler.transform(test)
 
-    
 
     def standardize_scale_apply(self, data):
         
@@ -385,7 +361,6 @@ class split_and_standardize:
             
         """
         return np.divide((data - np.nanmean(data)), np.nanstd(data))
-
 
 
     def standardize_scale_apply_test(self, train, test):
@@ -402,7 +377,6 @@ class split_and_standardize:
         """
         return np.divide((test - np.nanmean(train)), np.nanstd(train))
 
-    
         
     def split_data_to_traintest(self, below1=None, below2=None, below3=None, below4=None, above1=None, above2=None, above3=None, above4=None):
         
@@ -437,7 +411,6 @@ class split_and_standardize:
             return train1, test1, train_label, test_label
         
 
-
     def standardize_training(self, func, data1, data2=None, data3=None, data4=None):
         
         """Function to standardize the training data.
@@ -461,7 +434,6 @@ class split_and_standardize:
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
         if self.single:
             return data_scaled1
-        
         
     
     def standardize_testing(self, func, train1=None, train2=None, train3=None, train4=None, 
@@ -494,7 +466,6 @@ class split_and_standardize:
             return data1
 
 
-
     def stack_the_data(self, data1, data2, data3, data4):
         
         """Stack the numpy arrays before assembling final xarray netcdf file for saving.
@@ -512,7 +483,6 @@ class split_and_standardize:
         if not self.single:
             totaldata=np.stack([data1, data2, data3, data4])
             return totaldata
-
 
 
     def save_data(self, train_data, train_label, test_data, test_label):
@@ -549,7 +519,6 @@ class split_and_standardize:
                 })
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
         print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
-
 
     
     def run_sequence(self):
