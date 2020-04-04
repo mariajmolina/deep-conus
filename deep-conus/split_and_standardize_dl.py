@@ -471,7 +471,7 @@ class split_and_standardize:
         """
         
         print("Opening files...")
-        data_above = self.open_below_threshold()
+        data_above = self.open_above_threshold()
         data_below = self.open_below_threshold()
         
         
