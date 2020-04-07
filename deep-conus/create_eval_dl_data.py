@@ -118,54 +118,14 @@ class CreateEvaluationData:
             variable (str): The variable being processed and saved.
         
         """
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[:100000]
-        print(f"Opening 1...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 1...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test1.nc')
-        
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[100000:200000]
-        print(f"Opening 2...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 2...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test2.nc')
-        
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[200000:300000]
-        print(f"Opening 3...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 3...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test3.nc')
-        
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[300000:400000]
-        print(f"Opening 4...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 4...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test4.nc')
-        
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[400000:500000]
-        print(f"Opening 5...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 5...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test5.nc')
-        
-        np.random.seed(0)
-        select_data=np.random.permutation(data.coords['b'].shape[0])[500000:]
-        print(f"Opening 6...")
-        data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                    'X_test_label':(['b'], data.X_test_label[select_data])})
-        print(f"Saving 6...")
-        data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test6.nc')
-        
+        for num, (i, j) in enumerate(zip([0,100000,200000,300000,400000,500000], [100000,200000,300000,400000,500000,600000])):
+            np.random.seed(0)
+            select_data=np.random.permutation(data.coords['b'].shape[0])[i:j]
+            print(f"Opening {num+1}...")
+            data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
+                                        'X_test_label':(['b'], data.X_test_label[select_data])})
+            print(f"Saving {num+1}...")
+            data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
         data_assemble=data_assemble.close()
         data=data.close()
         return
