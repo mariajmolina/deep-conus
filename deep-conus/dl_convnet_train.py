@@ -163,7 +163,7 @@ class DLTraining:
         """Open the training data files.
         
         Returns:
-            Dictionary of opened Xarray data arrays containing selected variable training data.
+            datas: Dictionary of opened Xarray data arrays containing selected variable training data.
             
         """
         datas={}
@@ -180,11 +180,10 @@ class DLTraining:
             **kwargs: Dictionary containing opened variable training data, which was opened with ``self.open_files()``.
             
         Returns:
-            Eagerly loaded training data and labels as numpy arrays.
+            X_train, label: Eagerly loaded training data and labels as a numpy array.
         
         """
         thedatas={}
-        label={}
         for key, value in kwargs.items():
             thedatas[key]=value.X_train.transpose('a','x','y','features').values
             label=value.X_train_label.values

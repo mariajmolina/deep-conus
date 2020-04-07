@@ -131,6 +131,30 @@ class CreateEvaluationData:
         return
     
     
+    def month_translate(self):
+        
+        """Convert integer month to string month.
+        
+        Returns:
+            out (str): Input month as string.
+            
+        Raises:
+            ValueError: If the month is not within the study's range (Dec-May).
+            
+        """
+        var={12:'dec',
+             1:'jan',
+             2:'feb',
+             3:'mar',
+             4:'apr',
+             5:'may'}
+        try:
+            out=var[self.month_choice]
+            return out
+        except:
+            raise ValueError("Please enter month integer from Dec-May.")
+            
+    
     def month_method(self, data, variable):
         
         """Parses the test data into monthly groups, saving each individually to avoid memory issues during evaluation.
