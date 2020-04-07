@@ -5,9 +5,9 @@ import pandas as pd
 import multiprocessing as mp
 
 
-class preprocess_data:
+class PreprocessData:
 
-    """Class instantiation of preprocess_data:
+    """Class instantiation of PreprocessData:
     
     Here we will be preprocessing data for deep learning model training.
 

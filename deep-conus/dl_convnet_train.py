@@ -16,16 +16,17 @@ import numpy as np
 import pandas as pd
 
 
-class dl_training:
+class DLTraining:
 
-    """Class instantiation of dl_training:
+    """Class instantiation of DLTraining:
             
     Build and train a deep convolutional neural network using previously created imported data.
             
     Attributes:
         working_directory (str): Directory path to save DL model.
         dlfile_directory (str): Directory path where train data is stored.
-        variables (str): Numpy array of variable name strings. Input as a numpy array.
+        variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
+                         ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
         model_num (int): Number assignment for the model.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
         climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.

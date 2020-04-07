@@ -2,9 +2,9 @@ import xarray as xr
 import numpy as np
 
 
-class interpolate_variable:
+class InterpolateVariable:
 
-    """Class instantiation of interpolate_variable:
+    """Class instantiation of InterpolateVariable:
 
     Here we will be interpolating the respective variable onto 1, 3, 5, and 7 km above ground level (AGL).
 

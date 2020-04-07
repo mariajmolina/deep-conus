@@ -2,9 +2,9 @@ import xarray as xr
 import numpy as np
 
 
-class compute_variable:
+class ComputeVariable:
 
-    """Class instantiation of compute_variable:
+    """Class instantiation of ComputeVariable:
 
     Here we will be computing a variable using state variable data output from CONUS1 simulations.
 

@@ -2,9 +2,9 @@ import xarray as xr
 import numpy as np
 
 
-class split_and_standardize:
+class SplitAndStandardize:
     
-    """Class instantiation of split_and_standardize:
+    """Class instantiation of SplitAndStandardize:
 
     Here we will be preprocessing data for deep learning model training.
     This module includes methods for training and testing data splits and standardization.

@@ -14,9 +14,9 @@ from shapely.prepared import prep
 from hagelslag.hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
 
-class storm_patch_creator:
+class StormPatchCreator:
     
-    """Class instantiation of storm_patch_creator class.
+    """Class instantiation of StormPatchCreator:
         
     Here we will create the storm patches that will be used for training deep learning models.
         
