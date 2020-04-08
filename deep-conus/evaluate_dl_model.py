@@ -46,7 +46,6 @@ class EvaluateDLModel:
         
     """
     
-    
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, 
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5):
         
@@ -63,6 +62,7 @@ class EvaluateDLModel:
         self.variables=variables
         self.var_directory=var_directory
         self.model_directory=model_directory
+        self.model_num=model_num
         self.eval_directory=eval_directory
         
         self.mask=mask
@@ -101,6 +101,40 @@ class EvaluateDLModel:
         except:
             raise ValueError("Please enter month integer from Dec-May.")
     
+
+    def variable_translate(self, variable):
+        
+        """Variable name for the respective filenames.
+           
+        Args:
+            variable (str): The variable to feed into the dictionary.
+            
+        Returns:
+            variable (str): The variable name to use for opening saved files.
+            
+        Raises:
+            ValueError: If provided variable is not available.
+            
+        """
+        var={
+               'EU':'EU',
+               'EV':'EV',
+               'TK':'TK',
+               'QVAPOR':'QVAPOR',
+               'WMAX':'MAXW',
+               'W_vert':'W',
+               'PRESS':'P',
+               'DBZ':'DBZ',
+               'CTT':'CTT',
+               'UH25':'UH25',
+               'UH03':'UH03',
+              }
+        try:
+            out=var[variable]
+            return out
+        except:
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+            
     
     def open_test_files(self):
 
@@ -135,7 +169,7 @@ class EvaluateDLModel:
             **kwargs: Dictionary containing opened variable testing data, which was opened with ``self.open_test_files()``.
             
         Returns:
-            X_test, label: Eagerly loaded test data and labels as a numpy array.
+            testdata, label: Eagerly loaded test data and labels as a numpy array.
         
         """
         thedata={}
@@ -143,30 +177,30 @@ class EvaluateDLModel:
             thedata[key]=value.X_test.values
             label=value.X_test_label.values
         if len(kwargs) > 1:
-            X_test=np.concatenate(list(thedata.values()), axis=3)
+            testdata=np.concatenate(list(thedata.values()), axis=3)
         if len(kwargs)==1:
-            X_test=np.squeeze(np.asarray(list(thedata.values())))
-        kwargs=None
-        return X_test, label
+            testdata=np.squeeze(np.asarray(list(thedata.values())))
+        thedata=None
+        return testdata, label
     
     
-    def remove_nans(self, X_test, label):
+    def remove_nans(self, testdata, label):
         
         """Assemble the variables and remove any ``nan`` values from the data. 
         Assigns new attributes to class, including ``test_data`` and ``test_labels``, which are the test data and labels 
         for evaluating deep learning model skill.
         
         Args:
-            X_test (numpy array): Test data.
+            testdata (numpy array): Test data.
             label (numpy array): Label data.
         
         """
         data = xr.Dataset({
-                    'X_test':(['b','x','y','features'], X_test),
+                    'X_test':(['b','x','y','features'], testdata),
                     'X_test_label':(['b'], label),
                     },
                     ).dropna(dim='b')
-        X_test=None
+        testdata=None
         label=None
         self.test_data=data.X_test.values
         self.test_labels=data.X_test_label.values
@@ -274,7 +308,7 @@ class EvaluateDLModel:
         
         """
         self.assign_thresholds()
-        self.contingency_tables=pd.DataFrame(np.zeros((self.thresholds.size, 8), dtype=int),
+        self.contingency_nonscalar_table=pd.DataFrame(np.zeros((self.thresholds.size, 8), dtype=int),
                                                columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR"])
         for t, threshold in enumerate(self.thresholds):
             tp = np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
@@ -293,10 +327,9 @@ class EvaluateDLModel:
                 far = float(fp) / (float(fp) + float(tp))
             except ZeroDivisionError:
                 far = 0.
-            self.contingency_tables.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far]
-            
-        if self.method='random':
-            self.contingency_tables.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_{self.method}_test{self.model_num}.csv')
+            self.contingency_nonscalar_table.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far]
+        if self.method=='random':
+            self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
                 
 
     def scalar_metrics_and_save(self):
@@ -304,22 +337,46 @@ class EvaluateDLModel:
         """Evaluate the DL model using a scalar threshold and a series of error metrics and save results as a csv file.
         
         """
-        self.contingency_tables = pd.DataFrame(columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
-                                                        "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate"])
-        
+        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 13), dtype=int),
+                                                     columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
+                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate"])
         tp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         fp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
         fn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         tn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold))) 
+        try:
+            pod = float(tp) / (float(tp) + float(fn))
+        except ZeroDivisionError:
+            pod = 0.
+        try:
+            pofd = float(fp) / (float(fp) + float(tn))
+        except ZeroDivisionError:
+            pofd = 0.
+        try:
+            far = float(fp) / (float(fp) + float(tp))
+        except ZeroDivisionError:
+            far = 0.
+        self.create_contingency_matrix()
         csi=self.threat_score()
         pc=self.proportion_correct()
         bs=self.bias()
         hr=self.hit_rate()
         farate=self.false_alarm_rate()
+        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate]
+        if self.method=='random':
+            self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
         
-        self.contingency_tables.iloc[0] = [tp, fp, fn, tn, threshold, pod, pofd, far, csi, pc, bs, hr, farate]
         
-        if self.method='random':
-            self.contingency_tables.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_{self.method}_test{self.model_num}.csv')
+    def sequence_the_evaluation(self):
+        
+        """Automation of the sequence of functions to produce deep learning model evaluation files.
+        
+        """
+        data=self.open_test_files()
+        testdata, labels=self.assemble_and_concat(**data)
+        self.remove_nans(testdata, labels)
+        self.load_and_predict()
+        self.nonscalar_metrics_and_save()
+        self.scalar_metrics_and_save()
         
         
