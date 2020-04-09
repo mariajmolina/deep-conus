@@ -305,7 +305,7 @@ class DLTraining:
             
             Flatten(),
             
-            Dense()  #activation? #relu
+            #Dense()  #activation? #relu
 
             Dense(units=self.denseshape, activation=self.output_activation, 
                   use_bias=True, 

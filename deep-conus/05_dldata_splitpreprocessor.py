@@ -24,6 +24,7 @@ class SplitAndStandardize:
             
     Todo:
         * Add second threshold option once it is added as to ``preprocess_dl_data.py``.
+        * Add option to not standardize ``DBZ``.
         
     """
     

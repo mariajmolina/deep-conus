@@ -48,6 +48,15 @@ class CreateEvaluationData:
             self.mask_str='mask'
         
         
+    def add_dbz(self):
+        
+        """Function that adds ``DBZ`` variable to variable list if not already contained.
+        
+        """
+        if not np.isin('DBZ', self.variables):
+            self.variables=np.append(self.variables, 'DBZ')
+    
+        
     def variable_translate(self, variable):
         
         """Variable name for the respective filenames.
@@ -87,25 +96,19 @@ class CreateEvaluationData:
         """Open the testing data files and apply the respective parsing method to create the test subset.
             
         """
-        all_data={}
-        
+        self.add_dbz()
         for var in self.variables:
             print(f"Opening {var}...")
             data=xr.open_mfdataset(f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
                                    parallel=True, combine='by_coords')
-            
             if self.method=='random':
                 self.random_method(data, var)
-                
             if self.method=='month':
                 self.month_method(data, var)
-                
             if self.method=='season':
                 self.season_method(data, var)
-                
             if self.method=='year':
                 self.year_method(data, var)
-                
         return
     
     
@@ -122,8 +125,12 @@ class CreateEvaluationData:
             np.random.seed(0)
             select_data=np.random.permutation(data.coords['b'].shape[0])[i:j]
             print(f"Opening {num+1}...")
-            data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                      'X_test_label':(['b'], data.X_test_label[select_data])})
+            if len(data.X_test.dims)==4:
+                data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
+                                          'X_test_label':(['b'], data.X_test_label[select_data])})
+            if len(data.X_test.dims)==3:
+                data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y')[select_data,:,:].expand_dims('features',axis=3)),
+                                          'X_test_label':(['b'], data.X_test_label[select_data])})
             print(f"Saving {num+1}...")
             data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
         data_assemble=data_assemble.close()

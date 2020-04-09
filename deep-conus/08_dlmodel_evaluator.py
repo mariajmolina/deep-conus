@@ -127,6 +127,14 @@ class EvaluateDLModel:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
             
     
+    def add_dbz(self):
+        
+        """Function that adds ``DBZ`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'DBZ')
+            
+            
     def open_test_files(self):
 
         """Open the subset test data files.
@@ -135,6 +143,7 @@ class EvaluateDLModel:
             the_data: Dictionary of opened Xarray data arrays containing selected variable training data.
             
         """
+        self.add_dbz()
         the_data={}
         if self.method=='random':
             for var in self.variables:
@@ -206,7 +215,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_{self.climate}.h5')
-        self.model_probability_forecasts=model.predict(self.test_data)
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-1])
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -366,19 +375,19 @@ class EvaluateDLModel:
         #true - positives
         self.tp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         #true - positives, prediction probability exceeding 95% confidence (very correct, severe)
-        self.tp_98_indx=np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.tp_99_indx=np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))
         #false - positives
         self.fp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
         #false - positives, prediction probability exceeding 95% confidence (very incorrect, severe)
-        self.fp_98_indx=np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.fp_99_indx=np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))
         #false - negatives
         self.fn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         #false - negatives; prediction probability below 5% (very incorrect, nonsevere)
-        self.fn_02_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.fn_01_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))
         #true negative
         self.tn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
         #true negative, prediction probability below 5% (very correct, nonsevere)
-        self.tn_02_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.tn_01_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))
         
         
     def save_indx_variables(self):
@@ -389,13 +398,13 @@ class EvaluateDLModel:
         self.grab_verification_indices()
         data=xr.Dataset({
             'tp':(['a','x','y','features'], self.test_data[self.tp_indx,:,:,:].squeeze()),
-            'tp_98':(['b','x','y','features'], self.test_data[self.tp_98_indx,:,:,:].squeeze()),
+            'tp_98':(['b','x','y','features'], self.test_data[self.tp_99_indx,:,:,:].squeeze()),
             'fp':(['c','x','y','features'], self.test_data[self.fp_indx,:,:,:].squeeze()),
-            'fp_98':(['d','x','y','features'], self.test_data[self.fp_98_indx,:,:,:].squeeze()),
+            'fp_98':(['d','x','y','features'], self.test_data[self.fp_99_indx,:,:,:].squeeze()),
             'fn':(['e','x','y','features'], self.test_data[self.fn_indx,:,:,:].squeeze()),
-            'fn_02':(['f','x','y','features'], self.test_data[self.fn_02_indx,:,:,:].squeeze()),
+            'fn_02':(['f','x','y','features'], self.test_data[self.fn_01_indx,:,:,:].squeeze()),
             'tn':(['g','x','y','features'], self.test_data[self.tn_indx,:,:,:].squeeze()),
-            'tn_02':(['h','x','y','features'], self.test_data[self.tn_02_indx,:,:,:].squeeze()),})
+            'tn_02':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),})
         data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         
         
