@@ -1,21 +1,9 @@
-import keras
-import tensorflow as tf
-from keras import backend as K
-from keras.backend.tensorflow_backend import set_session
-from keras.models import Model, save_model, load_model, Sequential
-from keras.layers import Dense, Activation, Conv2D, Input, AveragePooling2D, MaxPooling2D
-from keras.layers import SpatialDropout2D, Flatten, LeakyReLU, Dropout, BatchNormalization, LeakyReLU
-from keras.optimizers import SGD, Adam
-from keras.regularizers import l2
-
+from keras.models import save_model
 import xarray as xr
 import numpy as np
 import pandas as pd
-
-from sklearn.metrics import mean_squared_error, roc_auc_score
+#from sklearn.metrics import mean_squared_error
 from sklearn.metrics.cluster import contingency_matrix
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 
 
@@ -40,6 +28,9 @@ class EvaluateDLModel:
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
         year_choice (int): Year for analysis. Defaults to ``None``.
         obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
+        
+    Raises:
+        Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
@@ -195,7 +186,7 @@ class EvaluateDLModel:
             label (numpy array): Label data.
         
         """
-        data = xr.Dataset({
+        data=xr.Dataset({
                     'X_test':(['b','x','y','features'], testdata),
                     'X_test_label':(['b'], label),
                     },
@@ -299,7 +290,7 @@ class EvaluateDLModel:
         Assigns new class attribute ``self.thresholds`` with the array of thresholds.
         
         """
-        _, _, self.thresholds = roc_curve(self.test_labels, self.model_probability_forecasts)
+        _, _, self.thresholds=roc_curve(self.test_labels, self.model_probability_forecasts)
     
             
     def nonscalar_metrics_and_save(self):
@@ -309,12 +300,12 @@ class EvaluateDLModel:
         """
         self.assign_thresholds()
         self.contingency_nonscalar_table=pd.DataFrame(np.zeros((self.thresholds.size, 8), dtype=int),
-                                               columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR"])
+                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR"])
         for t, threshold in enumerate(self.thresholds):
-            tp = np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-            fp = np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
-            fn = np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-            tn = np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+            tp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+            fp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+            fn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+            tn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
             try:
                 pod = float(tp) / (float(tp) + float(fn))
             except ZeroDivisionError:
@@ -367,6 +358,47 @@ class EvaluateDLModel:
             self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
         
         
+    def grab_verification_indices(self):
+        
+        """Extract the indices of various test cases for follow-up interpretation compositing.
+        
+        """
+        #true - positives
+        self.tp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        #true - positives, prediction probability exceeding 95% confidence (very correct, severe)
+        self.tp_98_indx=np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        #false - positives
+        self.fp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+        #false - positives, prediction probability exceeding 95% confidence (very incorrect, severe)
+        self.fp_98_indx=np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))
+        #false - negatives
+        self.fn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        #false - negatives; prediction probability below 5% (very incorrect, nonsevere)
+        self.fn_02_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        #true negative
+        self.tn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+        #true negative, prediction probability below 5% (very correct, nonsevere)
+        self.tn_02_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))
+        
+        
+    def save_indx_variables(self):
+        
+        """Extract the respective test data cases using indices from ``grab_verification_indices``.
+        
+        """
+        self.grab_verification_indices()
+        data=xr.Dataset({
+            'tp':(['a','x','y','features'], self.test_data[self.tp_indx,:,:,:].squeeze()),
+            'tp_98':(['b','x','y','features'], self.test_data[self.tp_98_indx,:,:,:].squeeze()),
+            'fp':(['c','x','y','features'], self.test_data[self.fp_indx,:,:,:].squeeze()),
+            'fp_98':(['d','x','y','features'], self.test_data[self.fp_98_indx,:,:,:].squeeze()),
+            'fn':(['e','x','y','features'], self.test_data[self.fn_indx,:,:,:].squeeze()),
+            'fn_02':(['f','x','y','features'], self.test_data[self.fn_02_indx,:,:,:].squeeze()),
+            'tn':(['g','x','y','features'], self.test_data[self.tn_indx,:,:,:].squeeze()),
+            'tn_02':(['h','x','y','features'], self.test_data[self.tn_02_indx,:,:,:].squeeze()),})
+        data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        
+        
     def sequence_the_evaluation(self):
         
         """Automation of the sequence of functions to produce deep learning model evaluation files.
@@ -378,5 +410,5 @@ class EvaluateDLModel:
         self.load_and_predict()
         self.nonscalar_metrics_and_save()
         self.scalar_metrics_and_save()
-        
+        self.save_indx_variables()
         

@@ -21,6 +21,9 @@ class InterpolateVariable:
         project_code (str): The supercomputer account charge code. Defaults to ``None``.
         cluster_min (str): The minimum number of nodes to initiate for adaptive dask job. Defaults to 10. Each node contains 36 CPUs on Cheyenne.
         cluster_max (str): The maximum number of nodes to initiate for adaptive dask job. Defaults to 40.
+        
+    Raises:
+        Exceptions: Checks whether correct values were input for ``climate``, ``variables``, and ``project_code``.
 
     """
         
@@ -132,13 +135,10 @@ class InterpolateVariable:
         """
         from ncar_jobqueue import NCARCluster
         from dask.distributed import Client
-        #start dask workers
         cluster=NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
         cluster
-        #print scripts
         print(cluster.job_script())
-        #start client
         client=Client(cluster)
         client
 

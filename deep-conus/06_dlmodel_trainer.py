@@ -45,6 +45,9 @@ class DLTraining:
         validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
         batch_size (int): Size of batches used during training. Defaults to 128.
         epochs (int): The number of epochs to run through during training. Defaults to 10.
+        
+    Raises:
+        Exception: Checks whether correct values were input for ``climate``.
             
     Todo:
         * Add pool_method attribute; a method to use for pooling layers (str; default mean [also have max]).
@@ -142,7 +145,7 @@ class DLTraining:
             out=var[variable]
             return out
         except:
-            raise ValueError("Please enter TK, EV, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, or DBZ as variable.")
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
             
 
     def initiate_session(self):
@@ -301,6 +304,8 @@ class DLTraining:
                                  data_format='channels_last'),
             
             Flatten(),
+            
+            Dense()  #activation? #relu
 
             Dense(units=self.denseshape, activation=self.output_activation, 
                   use_bias=True, 

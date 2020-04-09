@@ -21,6 +21,9 @@ class PreprocessData:
         threshold2 (int): The second threshold for ``UHdual`` method. Defaults to ``None``.
         num_cpus (int): Number of CPUs for to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
+    Raises:
+        Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
+        
     Todo:
         * Add ``UHdual`` method functionality.
         

@@ -39,6 +39,9 @@ class StormPatchCreator:
         variable_path (str): Path to where the variable files are located. Defaults to None.
         num_cpus (int): Number of CPUs for to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
+    Raises:
+        Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
+        
     """
     
     def __init__(self, date1, date2, climate, destination_path, 
@@ -104,7 +107,7 @@ class StormPatchCreator:
             out=var[self.variable]
             return out
         except:
-            raise ValueError("Please enter TK, EU, EV, QVAPOR, PRESS, W_vert, or WMAX as variable.")
+            raise ValueError("Please enter ``TK``, ``EU``, ``EV``, ``QVAPOR``, ``PRESS``, ``W_vert``, or ``WMAX`` as variable.")
 
         
     def generate_timestring(self):
@@ -306,7 +309,7 @@ class StormPatchCreator:
         try:
             data_uh25=xr.open_dataset(file_uh25)
             data_uh03=xr.open_dataset(file_uh03)
-            data_ctt =xr.open_dataset(file_ctt)
+            data_ctt=xr.open_dataset(file_ctt)
         except IOError:
             #very few days do not contain identified storms, avoid job kill with exception here.
             print(f"not found {datetime_value.strftime('%Y%m%d')}")

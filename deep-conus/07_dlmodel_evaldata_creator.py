@@ -82,7 +82,7 @@ class CreateEvaluationData:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
 
             
-    def open_files(self):
+    def open_files_and_run_method(self):
 
         """Open the testing data files and apply the respective parsing method to create the test subset.
             
@@ -122,8 +122,8 @@ class CreateEvaluationData:
             np.random.seed(0)
             select_data=np.random.permutation(data.coords['b'].shape[0])[i:j]
             print(f"Opening {num+1}...")
-            data_assemble = xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
-                                        'X_test_label':(['b'], data.X_test_label[select_data])})
+            data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
+                                      'X_test_label':(['b'], data.X_test_label[select_data])})
             print(f"Saving {num+1}...")
             data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
         data_assemble=data_assemble.close()
