@@ -36,12 +36,12 @@ class PreprocessData:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
             
         if method!='UHsingle' and method!='UHdual' and method!='GRP':
             raise Exception("Incorrect method. Please enter UHsingle, UHdouble, or GRP.")
-        if method=='UHsingle' or method=='UHdual' or method=='GRP':
+        else:
             self.method=method
             self.threshold1=threshold1
             if self.method=='UHdual':

@@ -33,7 +33,7 @@ class ComputeVariable:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
 
         if self.climate == 'current':
@@ -45,7 +45,7 @@ class ComputeVariable:
 
         if variable!='CAPE' and variable!='CTT' and variable!='UH':
             raise Exception("Variable not available. Please enter CAPE, CTT, or UH.")
-        if variable == 'CAPE' or variable == 'CTT' or variable == 'UH':
+        else:
             self.variable=variable
 
         self.month1=month_start

@@ -42,12 +42,12 @@ class EvaluateDLModel:
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
         
         if method!='random' and method!='month' and method!='season' and method!='year':
             raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
-        if method=='random' or method=='month' or method=='season' or method=='year':
+        else:
             self.method=method
             
         self.variables=variables

@@ -45,14 +45,12 @@ class DLTraining:
         validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
         batch_size (int): Size of batches used during training. Defaults to 128.
         epochs (int): The number of epochs to run through during training. Defaults to 10.
+        pool_method (str): Pooling method. Defaults to ``mean`` (also have ``max`` available).
+        batch_norm (boolean): Whether to apply batch normalization after every convolutional layer. Defaults to ``True``.
+        spatial_drop (boolean): Whether to apply spatial dropout (at 30%) after every convolutional layer. Defaults to ``True``.
         
     Raises:
-        Exception: Checks whether correct values were input for ``climate``.
-            
-    Todo:
-        * Add pool_method attribute; a method to use for pooling layers (str; default mean [also have max]).
-        * Add batch_norm attribute; whether to apply batch normalization after every conv layer (boolean; default True).
-        * Add spatial_drop attribute; whether to apply spatial dropout (30%) after every conv layer (boolean; default True).
+        Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
         
     """
     
@@ -61,7 +59,8 @@ class DLTraining:
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
-                 validation_split=0.1, batch_size=128, epochs=10):
+                 validation_split=0.1, batch_size=128, epochs=10, 
+                 pool_method='mean', batch_norm=True, spatial_drop=True):
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
@@ -76,7 +75,7 @@ class DLTraining:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
             
         self.print_sequential=print_sequential
@@ -93,25 +92,31 @@ class DLTraining:
         self.learning_rate=learning_rate
         
         self.output_func_and_loss=output_func_and_loss
-
-        if self.output_func_and_loss=='softmax':
+        if self.output_func_and_loss!='softmax' and self.output_func_and_loss!='sigmoid_bin' and self.output_func_and_loss!='sigmoid_mse':
+            raise Exception("``self.output_func_and_loss`` options include ``softmax``, ``sigmoid_bin``, and ``sigmoid_mse``.")
+        elif self.output_func_and_loss=='sigmoid_mse':
+            self.denseshape=1        
+            self.loss_func='mean_squared_error'
+            self.output_activation='sigmoid'            
+        elif self.output_func_and_loss=='softmax':
             self.denseshape=2
             self.loss_func='sparse_categorical_crossentropy'
-
-        if self.output_func_and_loss=='sigmoid_bin':
+        else: #sigmoid_bin
             self.denseshape=1        
             self.loss_func='binary_crossentropy'
             self.output_activation='sigmoid'
 
-        if self.output_func_and_loss=='sigmoid_mse':
-            self.denseshape=1        
-            self.loss_func='mean_squared_error'
-            self.output_activation='sigmoid'
-            
         self.strides_len=strides_len
         self.validation_split=validation_split
         self.batch_size=batch_size
         self.epochs=epochs
+        
+        if pool_method!='mean' and pool_method!='max':
+            raise Exception('``pool_method`` options available are ``mean`` and ``max``.')
+        else:
+            self.pool_method=pool_method
+        self.batch_norm=batch_norm
+        self.spatial_drop=spatial_drop
         
         
     def variable_translate(self, variable):
@@ -216,8 +221,8 @@ class DLTraining:
         traindata=data[maskarray,:,:,:]
         trainlabel=label[maskarray]
         return traindata, trainlabel
-
-
+    
+    
     def compile_meanpool_model(self, data):
 
         """Assemble and compile the deep conv neural network.
@@ -229,9 +234,9 @@ class DLTraining:
             model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network and prints model summary.
         
         """
-        model=Sequential([
+        model=Sequential()
 
-            Conv2D(self.conv_1_mapnum, 
+        model.add(Conv2D(self.conv_1_mapnum, 
                    (self.filter_width, self.filter_width),
                    input_shape=data.shape[1:], 
                    strides=self.strides_len,
@@ -240,22 +245,28 @@ class DLTraining:
                    kernel_initializer='glorot_uniform', bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None),
+                   bias_constraint=None))
 
-            BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                   center=True, scale=True, 
-                                   beta_initializer='zeros', gamma_initializer='ones',
-                                   moving_mean_initializer='zeros', 
-                                   moving_variance_initializer='ones',
-                                   beta_regularizer=None, gamma_regularizer=None,
-                                   beta_constraint=None, gamma_constraint=None),
+        if self.batch_norm:
+            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                         center=True, scale=True, 
+                                         beta_initializer='zeros', gamma_initializer='ones',
+                                         moving_mean_initializer='zeros', 
+                                         moving_variance_initializer='ones',
+                                         beta_regularizer=None, gamma_regularizer=None,
+                                         beta_constraint=None, gamma_constraint=None))
 
-            SpatialDropout2D(rate=0.3, data_format='channels_last'),
+        if self.spatial_drop:
+            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
 
-            AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                 data_format='channels_last'),
+        if self.pool_method=='mean':
+            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
+        if self.pool_method=='max':
+            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
             
-            Conv2D(self.conv_2_mapnum, 
+        model.add(Conv2D(self.conv_2_mapnum, 
                    (self.filter_width, self.filter_width),
                    input_shape=data.shape[1:], 
                    strides=self.strides_len,
@@ -264,22 +275,28 @@ class DLTraining:
                    kernel_initializer='glorot_uniform', bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None),
+                   bias_constraint=None))
 
-            BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                   center=True, scale=True, 
-                                   beta_initializer='zeros', gamma_initializer='ones',
-                                   moving_mean_initializer='zeros', 
-                                   moving_variance_initializer='ones',
-                                   beta_regularizer=None, gamma_regularizer=None,
-                                   beta_constraint=None, gamma_constraint=None),
+        if self.batch_norm:
+            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                         center=True, scale=True, 
+                                         beta_initializer='zeros', gamma_initializer='ones',
+                                         moving_mean_initializer='zeros', 
+                                         moving_variance_initializer='ones',
+                                         beta_regularizer=None, gamma_regularizer=None,
+                                         beta_constraint=None, gamma_constraint=None))
 
-            SpatialDropout2D(rate=0.3, data_format='channels_last'),
+        if self.spatial_drop:
+            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
 
-            AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                 data_format='channels_last'),
+        if self.pool_method=='mean':
+            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
+        if self.pool_method=='max':
+            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
 
-            Conv2D(self.conv_3_mapnum, 
+        model.add(Conv2D(self.conv_3_mapnum, 
                    (self.filter_width, self.filter_width),
                    input_shape=data.shape[1:], 
                    strides=self.strides_len,
@@ -288,33 +305,38 @@ class DLTraining:
                    kernel_initializer='glorot_uniform', bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None),
+                   bias_constraint=None))
 
-            BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                   center=True, scale=True, 
-                                   beta_initializer='zeros', gamma_initializer='ones',
-                                   moving_mean_initializer='zeros', 
-                                   moving_variance_initializer='ones',
-                                   beta_regularizer=None, gamma_regularizer=None,
-                                   beta_constraint=None, gamma_constraint=None),
+        if self.batch_norm:
+            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                         center=True, scale=True, 
+                                         beta_initializer='zeros', gamma_initializer='ones',
+                                         moving_mean_initializer='zeros', 
+                                         moving_variance_initializer='ones',
+                                         beta_regularizer=None, gamma_regularizer=None,
+                                         beta_constraint=None, gamma_constraint=None))
 
-            SpatialDropout2D(rate=0.3, data_format='channels_last'),
+        if self.spatial_drop:
+            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
 
-            AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                 data_format='channels_last'),
+        if self.pool_method=='mean':
+            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
+        if self.pool_method=='max':
+            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                       data_format='channels_last'))
             
-            Flatten(),
+        model.add(Flatten())
             
-            #Dense()  #activation? #relu
+        #Dense()  #activation? #relu
 
-            Dense(units=self.denseshape, activation=self.output_activation, 
+        model.add(Dense(units=self.denseshape, activation=self.output_activation, 
                   use_bias=True, 
                   kernel_initializer='glorot_uniform', 
                   bias_initializer='zeros', kernel_regularizer=None, 
                   bias_regularizer=None, activity_regularizer=None, 
-                  kernel_constraint=None, bias_constraint=None)
+                  kernel_constraint=None, bias_constraint=None))
 
-        ])
 
         model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
         print(model.summary())

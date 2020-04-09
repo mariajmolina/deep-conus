@@ -32,15 +32,13 @@ class SplitAndStandardize:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
             
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03':
             raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ as variable.")
-            
-        if variable=='TK' or variable=='EV' or variable=='EU' or variable=='QVAPOR' or variable=='PRESS' or variable=='W_vert' or \
-        variable=='WMAX' or variable=='DBZ' or variable=='CTT' or variable=='UH25' or variable=='UH03':
+        else:
             self.variable=variable
             
             if self.variable=="TK":

@@ -33,7 +33,7 @@ class InterpolateVariable:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
 
         if self.climate=='current':
@@ -45,7 +45,7 @@ class InterpolateVariable:
 
         if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W' and variable!='MAXW':
             raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, W, or MAXW.")
-        if variable=='TK' or variable=='QVAPOR' or variable=='EU' or variable=='EV' or variable=='P' or variable=='QGRAUP' or variable=='W' or variable=='MAXW':
+        else:
             self.variable=variable
 
         self.month1=month_start

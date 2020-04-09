@@ -56,7 +56,7 @@ class StormPatchCreator:
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter current of future climate as choice analysis.")
-        if climate=='current' or climate=='future':
+        else:
             self.climate=climate
 
         if self.climate=='current':
@@ -71,7 +71,7 @@ class StormPatchCreator:
         
         if method!='ws' and method!='ew' and method!='hyst':
             raise Exception("Please enter ws, ew, or hyst method for identifying storm object.")
-        if method=='ws' or method=='ew' or method=='hyst':
+        else:
             self.method=method
         
         self.dbz_path=dbz_path
