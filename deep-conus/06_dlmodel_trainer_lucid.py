@@ -3,7 +3,7 @@ import tensorflow as tf
 from keras import backend as K
 from keras.backend.tensorflow_backend import set_session
 
-from keras.models import Model, save_model, load_model, Sequential
+from keras.models import save_model, load_model, Sequential
 from keras.layers import Dense, Activation, Conv2D, Input, AveragePooling2D, MaxPooling2D
 from keras.layers import SpatialDropout2D, Flatten, LeakyReLU, Dropout, BatchNormalization, LeakyReLU
 from keras.optimizers import SGD, Adam
@@ -16,11 +16,12 @@ import numpy as np
 import pandas as pd
 
 
-class DLTraining:
+class DLTrainingLucid:
 
-    """Class instantiation of DLTraining:
+    """Class instantiation of DLTrainingLucid:
             
-    Build and train a deep convolutional neural network using previously created imported data.
+    Build and train a deep convolutional neural network using previously created imported data for interpretation with Lucid.
+    Importantly, this class instantiation requires the loading of tensorflow version < 2.0 for compatibility with Lucid.
             
     Attributes:
         working_directory (str): Directory path to save DL model.
@@ -232,138 +233,146 @@ class DLTraining:
         return traindata, trainlabel
     
     
-    def compile_model(self, data):
+    def create_and_train_model(self, data, label):
 
-        """Assemble and compile the deep conv neural network.
+        """Assemble, compile, train, and save the deep conv neural network into a protobuf (pb) file type.
+        Also saves the history and metric information from training to ``self.dl_filedirectory``.
         
         Args:
             data (numpy array): Training data with ``nans`` removed.
-        
-        Returns:
-            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network and prints model summary.
-        
-        """
-        model=Sequential()
-
-        model.add(Conv2D(self.conv_1_mapnum, 
-                   (self.filter_width, self.filter_width),
-                   input_shape=data.shape[1:], 
-                   strides=self.strides_len,
-                   padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_1_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
-                   kernel_regularizer=l2(0.001), bias_regularizer=None, 
-                   activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None))
-
-        if self.batch_norm:
-            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                         center=True, scale=True, 
-                                         beta_initializer='zeros', gamma_initializer='ones',
-                                         moving_mean_initializer='zeros', 
-                                         moving_variance_initializer='ones',
-                                         beta_regularizer=None, gamma_regularizer=None,
-                                         beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
-
-        if self.pool_method=='mean':
-            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-        if self.pool_method=='max':
-            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-            
-        model.add(Conv2D(self.conv_2_mapnum, 
-                   (self.filter_width, self.filter_width),
-                   strides=self.strides_len,
-                   padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_2_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
-                   kernel_regularizer=l2(0.001), bias_regularizer=None, 
-                   activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None))
-
-        if self.batch_norm:
-            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                         center=True, scale=True, 
-                                         beta_initializer='zeros', gamma_initializer='ones',
-                                         moving_mean_initializer='zeros', 
-                                         moving_variance_initializer='ones',
-                                         beta_regularizer=None, gamma_regularizer=None,
-                                         beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
-
-        if self.pool_method=='mean':
-            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-        if self.pool_method=='max':
-            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-
-        model.add(Conv2D(self.conv_3_mapnum, 
-                   (self.filter_width, self.filter_width),
-                   strides=self.strides_len,
-                   padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_3_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
-                   kernel_regularizer=l2(0.001), bias_regularizer=None, 
-                   activity_regularizer=None, kernel_constraint=None, 
-                   bias_constraint=None))
-
-        if self.batch_norm:
-            model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
-                                         center=True, scale=True, 
-                                         beta_initializer='zeros', gamma_initializer='ones',
-                                         moving_mean_initializer='zeros', 
-                                         moving_variance_initializer='ones',
-                                         beta_regularizer=None, gamma_regularizer=None,
-                                         beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
-
-        if self.pool_method=='mean':
-            model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-        if self.pool_method=='max':
-            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
-                                       data_format='channels_last'))
-            
-        model.add(Flatten())
-        
-        if self.additional_dense:
-            model.add(Dense(units=self.additional_dense_units, activation=self.additional_dense_activation))
-
-        model.add(Dense(units=self.denseshape, activation=self.output_activation))
-
-        model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
-        print(model.summary())
-        return model
-        
-        
-    def train_dl(self, model, data, label):
-        
-        """Train the compiled DL model, save the trained model, and save the history and metric information from training to 
-        ``self.dl_filedirectory``.
-            
-        Args: 
-            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
-            data (numpy array): Training data with ``nans`` removed.
             label (numpy array): Corresponding labels of data.
-            
+        
         """
-        history=model.fit(x=data, 
-                            y=label, 
-                            validation_split=self.validation_split, 
-                            batch_size=self.batch_size, 
-                            epochs=self.epochs, 
-                            shuffle=True)
-        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
-        save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
+        with K.get_session().as_default():
+
+            images=Input(tf.float32, [None, 32, 32, 20], name="input")
+
+            conv_net=Conv2D(self.conv_1_mapnum, (self.filter_width, self.filter_width),
+                            input_shape=data.shape[1:], strides=self.strides_len,
+                            padding='same', data_format='channels_last',
+                            dilation_rate=1, activation=None, use_bias=True, 
+                            kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                            kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                            activity_regularizer=None, kernel_constraint=None, 
+                            bias_constraint=None)(images)
+
+            conv_net=Activation(test.acti_1_func)(conv_net)
+            
+            if self.batch_norm:
+                conv_net=BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                            center=True, scale=True, 
+                                            beta_initializer='zeros', gamma_initializer='ones',
+                                            moving_mean_initializer='zeros', 
+                                            moving_variance_initializer='ones',
+                                            beta_regularizer=None, gamma_regularizer=None,
+                                            beta_constraint=None, gamma_constraint=None)(conv_net)
+
+            if self.spatial_drop:
+                conv_net=SpatialDropout2D(rate=0.3, data_format='channels_last')(conv_net)
+
+            if self.pool_method=='mean':
+                conv_net=AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                          data_format='channels_last')(conv_net)
+            if self.pool_method=='max':
+                conv_net=MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                      data_format='channels_last')(conv_net)
+            
+            
+            conv_net=Conv2D(self.conv_2_mapnum, (self.filter_width, self.filter_width),
+                            strides=self.strides_len, padding='same', data_format='channels_last',
+                            dilation_rate=1, activation=None, use_bias=True, 
+                            kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                            kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                            activity_regularizer=None, kernel_constraint=None, 
+                            bias_constraint=None)(conv_net)
+        
+            conv_net=Activation(test.acti_2_func)(conv_net)
+
+            if self.batch_norm:
+                conv_net=BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                            center=True, scale=True, 
+                                            beta_initializer='zeros', gamma_initializer='ones',
+                                            moving_mean_initializer='zeros', 
+                                            moving_variance_initializer='ones',
+                                            beta_regularizer=None, gamma_regularizer=None,
+                                            beta_constraint=None, gamma_constraint=None)(conv_net)
+
+            if self.spatial_drop:
+                conv_net=SpatialDropout2D(rate=0.3, data_format='channels_last')(conv_net)
+
+            if self.pool_method=='mean':
+                conv_net=AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                          data_format='channels_last')(conv_net)
+            if self.pool_method=='max':
+                conv_net=MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                      data_format='channels_last')(conv_net)
+            
+            conv_net=Conv2D(self.conv_3_mapnum, (self.filter_width, self.filter_width),
+                            strides=self.strides_len,
+                            padding='same', data_format='channels_last',
+                            dilation_rate=1, activation=None, use_bias=True, 
+                            kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                            kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                            activity_regularizer=None, kernel_constraint=None, 
+                            bias_constraint=None)(conv_net)
+
+            conv_net=Activation(test.acti_3_func)(conv_net)
+            
+            if self.batch_norm:
+                conv_net=BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
+                                            center=True, scale=True, 
+                                            beta_initializer='zeros', gamma_initializer='ones',
+                                            moving_mean_initializer='zeros', 
+                                            moving_variance_initializer='ones',
+                                            beta_regularizer=None, gamma_regularizer=None,
+                                            beta_constraint=None, gamma_constraint=None)(conv_net)
+
+            if self.spatial_drop:
+                conv_net=SpatialDropout2D(rate=0.3, data_format='channels_last')(conv_net)
+
+            if self.pool_method=='mean':
+                conv_net=AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                          data_format='channels_last')(conv_net)
+            if self.pool_method=='max':
+                conv_net=MaxPooling2D(pool_size=(2, 2), strides=None, padding='same', 
+                                      data_format='channels_last')(conv_net)            
+
+            conv_net=Flatten()(conv_net)
+            
+            if self.additional_dense:
+                conv_net=Dense(units=self.additional_dense_units, activation=self.additional_dense_activation)(conv_net)
+
+            outputs=Dense(test.denseshape)(conv_net)
+
+            outputs=Activation(test.output_activation)(outputs)
+            
+            from keras.models import Model
+            conv_model=Model(images, outputs)
+
+            opt=Adam(lr=test.learning_rate)
+
+            conv_model.compile(optimizer=opt, loss=test.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
+
+            print(conv_model.summary())
+            
+            history=conv_model.fit(x=data, 
+                                   y=label, 
+                                   validation_split=test.validation_split, 
+                                   batch_size=test.batch_size, 
+                                   epochs=test.epochs, 
+                                   shuffle=True)
+            
+            pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
+            save_model(conv_model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
+    
+            from lucid.modelzoo.vision_models import Model
+            Model.save(
+              save_url=f'/{self.working_directory}/model_{self.model_num}_{self.climate}.pb',
+              input_name=[node.op.name for node in conv_model.inputs][0],
+              output_names=[node.op.name for node in conv_model.outputs],
+              image_shape=[32, 32, 20],
+              image_value_range=[-7.1981897, 9.076215],
+            )
     
 
     def sequence_funcs(self):
@@ -384,13 +393,9 @@ class DLTraining:
             print("Removing nans...")
         train_data, label_data=self.omit_nans(train_data, label_data)
         if self.print_sequential:
-            print("Compiling model...")
-        model=self.compile_model(train_data)
-        if self.print_sequential:
-            print("Training model...")
-        self.train_dl(model, train_data, label_data)
+            print("Compiling and training model...")
+        self.create_and_train_model(train_data, label_data)
         data=None
         train_data=None
         label_data=None
         
-    
