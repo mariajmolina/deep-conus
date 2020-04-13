@@ -470,7 +470,7 @@ class SplitAndStandardize:
         """Stack the numpy arrays before assembling final xarray netcdf file for saving.
         
         Args:
-            data1 (numpy array): Data to be stacked. Arrange from lowest (``data1``) to highest (``data2``) vertical heights.
+            data1 (numpy array): Data to be stacked. Arrange from lowest (``data1``) to highest (``data4``) vertical heights.
             data2 (numpy array): Data to be stacked.
             data3 (numpy array): Data to be stacked.
             data4 (numpy array): Data to be stacked.
@@ -482,9 +482,32 @@ class SplitAndStandardize:
         if not self.single:
             totaldata=np.stack([data1, data2, data3, data4])
             return totaldata
+    
+    
+    def return_train_mean_and_std(self, traindata1, traindata2=None, traindata3=None, traindata4=None):
+        
+        """Extract mean and std data to record statistical distributions prior to standardization.
+        This data will be used during deep learning model interpretation.
+        
+        Args:
+            traindata1 (numpy array): Input training data for mean and standard deviation. Arrange from lowest (``traindata1``) 
+                                 to highest (``traindata4``) vertical heights.
+            traindata2 (numpy array): Input training data for mean and standard deviation. 
+            traindata3 (numpy array): Input training data for mean and standard deviation. 
+            traindata4 (numpy array): Input training data for mean and standard deviation. 
+            
+        Returns:
+            Input training data's mean and standard deviation values (float).
+            
+        """
+        if not self.single:
+            return np.array([np.nanmean(traindata1), np.nanmean(traindata2), np.nanmean(traindata3), np.nanmean(traindata4)]),
+                   np.array([np.nanstd(traindata1), np.nanstd(traindata2), np.nanstd(traindata3), np.nanstd(traindata4)])
+        if self.single:
+            return np.nanmean(traindata1), np.nanstd(traindata1)
+        
 
-
-    def save_data(self, train_data, train_label, test_data, test_label):
+    def save_data(self, train_data, train_label, test_data, test_label, train_mean, train_std):
         
         """Creates and saves the file that contains the training and testing standardized data for deep learning model training and 
         evaluation. The file contains data for one variable for ease of use later and storage space considerations.
@@ -494,6 +517,8 @@ class SplitAndStandardize:
             train_label (numpy array): The training data labels.
             test_data (numpy array): The testing data.
             test_label (numpy array): The testing data labels.
+            train_mean (numpy array): The training data means.
+            train_std (numpy array): The training data standard deviations (std).
             
         """
         if not self.single: 
@@ -506,6 +531,13 @@ class SplitAndStandardize:
                  coords=
                 {'feature':(['features'],self.attrs_array),
                 })
+            dist_assemble=xr.Dataset({
+                'train_mean':(['features'], train_mean),
+                'train_std':(['features'], train_std),
+                },
+                coords=
+                {'feature':(['features'],self.attrs_array),
+                })
         if self.single:
             data_assemble=xr.Dataset({
                 'X_train':(['a','x','y'], train_data),
@@ -516,7 +548,15 @@ class SplitAndStandardize:
                  coords=
                 {'feature':(['features'],self.attrs_array),
                 })
+            dist_assemble=xr.Dataset({
+                'train_mean':(['features'], train_mean),
+                'train_std':(['features'], train_std),
+                },
+                coords=
+                {'feature':(['features'],self.attrs_array),
+                })
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
+        dist_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
         print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
 
     
@@ -549,6 +589,9 @@ class SplitAndStandardize:
             test1, test2, test3, test4=self.standardize_testing(
                 self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4)
             
+            print("Generating distribution files...")
+            train_mean, train_std=self.return_train_mean_and_std(train1, train2, train3, train4)        
+            
             print("Standardizing training...")
             train1, train2, train3, train4=self.standardize_training(self.standardize_scale_apply, train1, train2, train3, train4)
             
@@ -576,6 +619,9 @@ class SplitAndStandardize:
             print("Standardizing testing...")
             test1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
             
+            print("Generating distribution files...")
+            train_mean, train_std=self.return_train_mean_and_std(traindata1=train1)
+            
             print("Standardizing training...")
             train1=self.standardize_training(self.standardize_scale_apply, data1=train1)
             
@@ -586,7 +632,7 @@ class SplitAndStandardize:
             train1=None; test1=None
         
         print("Saving file...")
-        self.save_data(Xtrain, train_label, Xtest, test_label) 
+        self.save_data(Xtrain, train_label, Xtest, test_label, train_mean, train_std) 
         
         Xtrain=None; Xtest=None; train_label=None; test_label=None
         
