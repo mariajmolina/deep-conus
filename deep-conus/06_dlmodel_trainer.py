@@ -48,6 +48,10 @@ class DLTraining:
         pool_method (str): Pooling method. Defaults to ``mean`` (also have ``max`` available).
         batch_norm (boolean): Whether to apply batch normalization after every convolutional layer. Defaults to ``True``.
         spatial_drop (boolean): Whether to apply spatial dropout (at 30%) after every convolutional layer. Defaults to ``True``.
+        additional_dense (boolean): Whether to apply additional dense layer prior to final dense layer for output, in order to reduce 
+                                    final dimensionality to simplify interpretation techniques. Defaults to ``False``.
+        additional_dense_units (int): Units for the ``additional_dense`` layer. Defaults to ``32``.
+        additional_dense_activation (str): Activation function for the ``additional_dense`` layer. Defaults to ``relu``.
         
     Raises:
         Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
@@ -60,7 +64,8 @@ class DLTraining:
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10, 
-                 pool_method='mean', batch_norm=True, spatial_drop=True):
+                 pool_method='mean', batch_norm=True, spatial_drop=True, 
+                 additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
@@ -117,6 +122,10 @@ class DLTraining:
             self.pool_method=pool_method
         self.batch_norm=batch_norm
         self.spatial_drop=spatial_drop
+        self.additional_dense=additional_dense
+        if self.additional_dense:
+            self.additional_dense_units=additional_dense_units
+            self.additional_dense_activation=additional_dense_activation
         
         
     def variable_translate(self, variable):
@@ -268,10 +277,9 @@ class DLTraining:
             
         model.add(Conv2D(self.conv_2_mapnum, 
                    (self.filter_width, self.filter_width),
-                   input_shape=data.shape[1:], 
                    strides=self.strides_len,
                    padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_1_func, use_bias=True, 
+                   dilation_rate=1, activation=self.acti_2_func, use_bias=True, 
                    kernel_initializer='glorot_uniform', bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
@@ -298,10 +306,9 @@ class DLTraining:
 
         model.add(Conv2D(self.conv_3_mapnum, 
                    (self.filter_width, self.filter_width),
-                   input_shape=data.shape[1:], 
                    strides=self.strides_len,
                    padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_1_func, use_bias=True, 
+                   dilation_rate=1, activation=self.acti_3_func, use_bias=True, 
                    kernel_initializer='glorot_uniform', bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
@@ -327,16 +334,11 @@ class DLTraining:
                                        data_format='channels_last'))
             
         model.add(Flatten())
-            
-        #Dense()  #activation? #relu
+        
+        if self.additional_dense:
+            model.add(Dense(units=self.additional_dense_units, activation=self.additional_dense_activation))
 
-        model.add(Dense(units=self.denseshape, activation=self.output_activation, 
-                  use_bias=True, 
-                  kernel_initializer='glorot_uniform', 
-                  bias_initializer='zeros', kernel_regularizer=None, 
-                  bias_regularizer=None, activity_regularizer=None, 
-                  kernel_constraint=None, bias_constraint=None))
-
+        model.add(Dense(units=self.denseshape, activation=self.output_activation))
 
         model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
         print(model.summary())
