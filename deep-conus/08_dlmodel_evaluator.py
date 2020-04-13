@@ -34,6 +34,7 @@ class EvaluateDLModel:
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
+        * Add evaluation of UH25 and UH03 for failure cases.
         
     """
     
@@ -133,6 +134,22 @@ class EvaluateDLModel:
         
         """
         self.variables=np.append(self.variables, 'DBZ')
+        
+        
+    def add_uh25(self):
+        
+        """Function that adds ``UH25`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'UH25')
+        
+        
+    def add_uh03(self):
+        
+        """Function that adds ``UH03`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'UH03')
             
             
     def open_test_files(self):
@@ -144,6 +161,8 @@ class EvaluateDLModel:
             
         """
         self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
         the_data={}
         if self.method=='random':
             for var in self.variables:
@@ -215,7 +234,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_{self.climate}.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-1])
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-3])
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -398,13 +417,13 @@ class EvaluateDLModel:
         self.grab_verification_indices()
         data=xr.Dataset({
             'tp':(['a','x','y','features'], self.test_data[self.tp_indx,:,:,:].squeeze()),
-            'tp_98':(['b','x','y','features'], self.test_data[self.tp_99_indx,:,:,:].squeeze()),
+            'tp_99':(['b','x','y','features'], self.test_data[self.tp_99_indx,:,:,:].squeeze()),
             'fp':(['c','x','y','features'], self.test_data[self.fp_indx,:,:,:].squeeze()),
-            'fp_98':(['d','x','y','features'], self.test_data[self.fp_99_indx,:,:,:].squeeze()),
+            'fp_99':(['d','x','y','features'], self.test_data[self.fp_99_indx,:,:,:].squeeze()),
             'fn':(['e','x','y','features'], self.test_data[self.fn_indx,:,:,:].squeeze()),
-            'fn_02':(['f','x','y','features'], self.test_data[self.fn_01_indx,:,:,:].squeeze()),
+            'fn_01':(['f','x','y','features'], self.test_data[self.fn_01_indx,:,:,:].squeeze()),
             'tn':(['g','x','y','features'], self.test_data[self.tn_indx,:,:,:].squeeze()),
-            'tn_02':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),})
+            'tn_01':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),})
         data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         
         

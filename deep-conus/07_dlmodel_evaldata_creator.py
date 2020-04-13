@@ -55,6 +55,24 @@ class CreateEvaluationData:
         """
         if not np.isin('DBZ', self.variables):
             self.variables=np.append(self.variables, 'DBZ')
+            
+            
+    def add_uh25(self):
+        
+        """Function that adds ``UH25`` variable to variable list if not already contained.
+        
+        """
+        if not np.isin('UH25', self.variables):
+            self.variables=np.append(self.variables, 'UH25')
+            
+            
+    def add_uh03(self):
+        
+        """Function that adds ``UH03`` variable to variable list if not already contained.
+        
+        """
+        if not np.isin('UH03', self.variables):
+            self.variables=np.append(self.variables, 'UH03')
     
         
     def variable_translate(self, variable):
@@ -97,6 +115,8 @@ class CreateEvaluationData:
             
         """
         self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
         for var in self.variables:
             print(f"Opening {var}...")
             data=xr.open_mfdataset(f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
