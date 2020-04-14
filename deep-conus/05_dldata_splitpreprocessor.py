@@ -549,8 +549,8 @@ class SplitAndStandardize:
                 {'feature':(['features'],self.attrs_array),
                 })
             dist_assemble=xr.Dataset({
-                'train_mean':(['features'], train_mean),
-                'train_std':(['features'], train_std),
+                'train_mean':(['features'], np.array([train_mean])),
+                'train_std':(['features'], np.array([train_std])),
                 },
                 coords=
                 {'feature':(['features'],self.attrs_array),
