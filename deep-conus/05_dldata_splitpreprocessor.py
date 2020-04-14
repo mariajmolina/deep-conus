@@ -501,7 +501,7 @@ class SplitAndStandardize:
             
         """
         if not self.single:
-            return np.array([np.nanmean(traindata1), np.nanmean(traindata2), np.nanmean(traindata3), np.nanmean(traindata4)]),
+            return np.array([np.nanmean(traindata1), np.nanmean(traindata2), np.nanmean(traindata3), np.nanmean(traindata4)]), \
                    np.array([np.nanstd(traindata1), np.nanstd(traindata2), np.nanstd(traindata3), np.nanstd(traindata4)])
         if self.single:
             return np.nanmean(traindata1), np.nanstd(traindata1)
@@ -633,6 +633,6 @@ class SplitAndStandardize:
         
         print("Saving file...")
         self.save_data(Xtrain, train_label, Xtest, test_label, train_mean, train_std) 
-        
-        Xtrain=None; Xtest=None; train_label=None; test_label=None
+
+        Xtrain=None; Xtest=None; train_label=None; test_label=None; train_mean=None; train_std=None
         
