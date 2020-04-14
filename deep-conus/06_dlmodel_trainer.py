@@ -79,7 +79,7 @@ class DLTraining:
             self.mask_str='mask'
 
         if climate!='current' and climate!='future':
-            raise Exception("Please enter current or future for climate option.")
+            raise Exception("Please enter ``current`` or ``future`` for climate option.")
         else:
             self.climate=climate
             
