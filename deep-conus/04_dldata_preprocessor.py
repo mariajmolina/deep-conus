@@ -240,6 +240,8 @@ class PreprocessData:
             if nouh:
                 print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
                 pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
+        pool2.close()
+        pool2.join()
         print(f"Completed the jobs.")
         
 

@@ -11,7 +11,7 @@ import shapely.geometry as sgeom
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
-from hagelslag.hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
+from hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
 
 class StormPatchCreator:
