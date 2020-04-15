@@ -7,7 +7,8 @@ class CreateEvaluationData:
     
     """Class instantiation of CreateEvaluationData:
     
-    Here we create subsets of test data for evaluating the deep learning model.
+    Here we create subsets of test data for evaluating the deep learning model. 
+    Data subsets will be saved as a file per variable.
     
     Attributes:
         climate (str): Whether to interpolate variable in the ``current`` or ``future`` climate simulation.
@@ -15,7 +16,7 @@ class CreateEvaluationData:
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
         directory (str): Directory where the deep learning files are saved and where these test data subsets will be saved.
-        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
+        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
         
     Raises:

@@ -20,7 +20,7 @@ class DLTrainingLucid:
 
     """Class instantiation of DLTrainingLucid:
             
-    Build and train a deep convolutional neural network using previously created imported data for interpretation with Lucid.
+    Build and train a deep convolutional neural network using previously created data for interpretation with Lucid.
     Importantly, this class instantiation requires the loading of tensorflow version < 2.0 for compatibility with Lucid.
             
     Attributes:
@@ -398,4 +398,6 @@ class DLTrainingLucid:
         data=None
         train_data=None
         label_data=None
+        if self.print_sequential:
+            print("Model saved.")
         
