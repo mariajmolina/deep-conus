@@ -1,8 +1,7 @@
-from keras.models import save_model
+from keras.models import load_model
 import xarray as xr
 import numpy as np
 import pandas as pd
-#from sklearn.metrics import mean_squared_error
 from sklearn.metrics.cluster import contingency_matrix
 from sklearn.metrics import roc_curve
 
@@ -22,27 +21,29 @@ class EvaluateDLModel:
         model_directory (str): Directory where the deep learning model is saved.
         model_num (str): The number of the model as it was saved.
         eval_directory (str): Directory where evaluation files will be saved.
-        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to False.
+        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
         month_choice (int): Month for analysis. Defaults to ``None``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
         year_choice (int): Year for analysis. Defaults to ``None``.
         obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
+        print_sequential (boolean): Whether the sequential function calls to save files will output status statements.
+                                    Defaults to ``True``.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        * Add evaluation of UH25 and UH03 for failure cases.
+        * Troubleshoot bug with ``nans`` showing up in UH03 data.
         
     """
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, 
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True):
         
         if climate!='current' and climate!='future':
-            raise Exception("Please enter current or future as string for climate period selection.")
+            raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
         
@@ -68,6 +69,7 @@ class EvaluateDLModel:
         self.season_choice=season_choice 
         self.year_choice=year_choice
         self.obs_threshold=obs_threshold
+        self.print_sequential=print_sequential
         
     
     def month_translate(self):
@@ -162,7 +164,7 @@ class EvaluateDLModel:
         """
         self.add_dbz()
         self.add_uh25()
-        self.add_uh03()
+        #self.add_uh03()    #add once UH03 data is fixed
         the_data={}
         if self.method=='random':
             for var in self.variables:
@@ -219,10 +221,10 @@ class EvaluateDLModel:
                     'X_test_label':(['b'], label),
                     },
                     ).dropna(dim='b')
-        testdata=None
-        label=None
         self.test_data=data.X_test.values
         self.test_labels=data.X_test_label.values
+        testdata=None
+        label=None
     
     
     def load_and_predict(self):
@@ -234,7 +236,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_{self.climate}.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-3])
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-2])     #change to -3 once UH03 data is fixed
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -392,21 +394,68 @@ class EvaluateDLModel:
         
         """
         #true - positives
-        self.tp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.tp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #true - positives, prediction probability exceeding 95% confidence (very correct, severe)
-        self.tp_99_indx=np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.tp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #false - positives
-        self.fp_indx=np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.fp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #false - positives, prediction probability exceeding 95% confidence (very incorrect, severe)
-        self.fp_99_indx=np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.fp_99_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #false - negatives
-        self.fn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.fn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #false - negatives; prediction probability below 5% (very incorrect, nonsevere)
-        self.fn_01_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        self.fn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #true negative
-        self.tn_indx=np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.tn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #true negative, prediction probability below 5% (very correct, nonsevere)
-        self.tn_01_indx=np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))
+        self.tn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
+        
+        
+    def add_heights_to_variables(self, variable):
+        
+        """Variable name for the respective filenames.
+           
+        Args:
+            variable (str): The variable to feed into the dictionary.
+            
+        Returns:
+            variable (str): The variable name with respective height AGL.
+            
+        Raises:
+            ValueError: If provided variable is not available.
+            
+        """
+        var={
+               'EU':['EU1','EU3','EU5','EU7'],
+               'EV':['EV1','EV3','EV5','EV7'],
+               'TK':['TK1','TK3','TK5','TK7'],
+               'QVAPOR':['QVAPOR1','QVAPOR3','QVAPOR5','QVAPOR7'],
+               'WMAX':'MAXW',
+               'W_vert':['W1','W3','W5','W7'],
+               'PRESS':['P1','P3','P5','P7'],
+               'DBZ':'DBZ',
+               'CTT':'CTT',
+               'UH25':'UH25',
+               'UH03':'UH03',
+              }
+        try:
+            out=var[variable]
+            return out
+        except:
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+        
+        
+    def apply_variable_dictionary(self):
+        
+        """Create the list of features to feed as Xarray dataset attribute in ``save_indx_variables``.
+        
+        """
+        var_list=[self.add_heights_to_variables(var) for var in self.variables[:-2]]   #change to -3 when UH03 is fixed
+        var_list2=[m for me in var_list for m in me]
+        var_list2=np.append(var_list2, 'DBZ')
+        var_list2=np.append(var_list2, 'UH25')
+        #var_list2=np.append(var_list2, 'UH03')      #UNCOMMENT when UH03 is fixed
+        return var_list2
         
         
     def save_indx_variables(self):
@@ -423,8 +472,13 @@ class EvaluateDLModel:
             'fn':(['e','x','y','features'], self.test_data[self.fn_indx,:,:,:].squeeze()),
             'fn_01':(['f','x','y','features'], self.test_data[self.fn_01_indx,:,:,:].squeeze()),
             'tn':(['g','x','y','features'], self.test_data[self.tn_indx,:,:,:].squeeze()),
-            'tn_01':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),})
-        data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+            'tn_01':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),
+            },
+            coords=
+            {'features':(['features'], self.apply_variable_dictionary()),
+            })
+        if self.method=='random':
+            data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         
         
     def sequence_the_evaluation(self):
@@ -432,11 +486,21 @@ class EvaluateDLModel:
         """Automation of the sequence of functions to produce deep learning model evaluation files.
         
         """
+        if self.print_sequential:
+            print("Opening and preparing the test files...")
         data=self.open_test_files()
         testdata, labels=self.assemble_and_concat(**data)
         self.remove_nans(testdata, labels)
+        if self.print_sequential:
+            print("Generating DL predictions...")
         self.load_and_predict()
+        if self.print_sequential:
+            print("Generating probabilistic and nonprobabilistic skill scores...")
         self.nonscalar_metrics_and_save()
         self.scalar_metrics_and_save()
+        if self.print_sequential:
+            print("Saving the indexed variables...")
         self.save_indx_variables()
+        if self.print_sequential:
+            print("Evaluation is complete.")
         
