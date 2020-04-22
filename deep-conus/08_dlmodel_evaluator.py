@@ -235,8 +235,8 @@ class EvaluateDLModel:
         the probabilistic and dichotomous predictions from the deep learning model.
         
         """
-        model=load_model(f'{self.model_directory}/model_{self.model_num}_{self.climate}.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-2])     #change to -3 once UH03 data is fixed
+        model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-2])                  #change to -3 once UH03 data is fixed
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
