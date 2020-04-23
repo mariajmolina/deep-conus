@@ -12,7 +12,7 @@ class SplitAndStandardize:
     Attributes:
         climate (str): The climate period to derive deep learning data for; ``current`` or ``future``.
         variable (str): Variable to run script the for, which can include ``TK``, ``EV``, ``EU``, ``QVAPOR``, 
-                        ``PRESS``, ``W_vert``, ``WMAX``, ``DBZ``, ``CTT``, ``UH25``, or ``UH03``.
+                        ``PRESS``, ``W_vert``, ``WMAX``, ``DBZ``, ``CTT``, ``UH25``, ``UH03``, or ``MASK``.
         percent_split (float): Percentage of total data to assign as training data. The remaining data will be 
                                 assigned as testing data. For example, 0.6 is 60% training data, 40% testing data.
         working_directory (str): The directory path to where the produced files will be saved and worked from.
@@ -36,8 +36,8 @@ class SplitAndStandardize:
             self.climate=climate
             
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
-        and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03':
-            raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ as variable.")
+        and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03' and variable!='MASK':
+            raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ, or MASK as variable.")
         else:
             self.variable=variable
             
@@ -113,6 +113,11 @@ class SplitAndStandardize:
                 self.choice_var1="uh03_sev_1"
                 self.attrs_array=np.array(["uh03"])    
                 self.single=True
+                
+            if self.variable=="MASK":
+                self.choice_var1="mask_sev_1"
+                self.attrs_array=np.array(["mask"])    
+                self.single=True
             
         if percent_split>=1:
             raise Exception("Percent split should be a float less than 1.")
@@ -152,12 +157,13 @@ class SplitAndStandardize:
                'CTT':'CTT',
                'UH25':'UH25',
                'UH03':'UH03',
+               'MASK':'MASK'
               }
         try:
             out=var[self.variable]
             return out
         except:
-            raise ValueError("Please enter TK, EU, EV, QVAPOR, P, W_vert, or WMAX as variable.")
+            raise ValueError("Please enter ``TK``, ``EU``, ``EV``, ``QVAPOR``, ``PRESS``, ``DBZ``, ``CTT``, ``UH25``, ``UH03``, ``W_vert``, ``WMAX``, or ``MASK`` as variable.")
         
     
     def open_above_threshold(self):
@@ -491,7 +497,7 @@ class SplitAndStandardize:
         
         Args:
             traindata1 (numpy array): Input training data for mean and standard deviation. Arrange from lowest (``traindata1``) 
-                                 to highest (``traindata4``) vertical heights.
+                                      to highest (``traindata4``) vertical heights.
             traindata2 (numpy array): Input training data for mean and standard deviation. 
             traindata3 (numpy array): Input training data for mean and standard deviation. 
             traindata4 (numpy array): Input training data for mean and standard deviation. 
@@ -615,15 +621,24 @@ class SplitAndStandardize:
             train1, test1, train_label, test_label=self.split_data_to_traintest(below1=below_1, above1=above_1)
             
             above_1=None; below_1=None
+            
+            if self.variable!='MASK':
 
-            print("Standardizing testing...")
-            test1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
+                print("Standardizing testing...")
+                test1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
             
-            print("Generating distribution files...")
-            train_mean, train_std=self.return_train_mean_and_std(traindata1=train1)
+                print("Generating distribution files...")
+                train_mean, train_std=self.return_train_mean_and_std(traindata1=train1)
             
-            print("Standardizing training...")
-            train1=self.standardize_training(self.standardize_scale_apply, data1=train1)
+                print("Standardizing training...")
+                train1=self.standardize_training(self.standardize_scale_apply, data1=train1)
+                
+            if self.variable=='MASK':
+
+                print("No standardizing training or testing because this is the storm patch mask...")
+                print("No generating distribution files either...")
+                train_mean=0.
+                train_std=0.
             
             print("Stacking files...")
             Xtrain=train1
