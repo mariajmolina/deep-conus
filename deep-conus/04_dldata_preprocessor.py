@@ -259,7 +259,7 @@ class PreprocessData:
         data_temp_sev_1=[]; data_temp_sev_3=[]; data_temp_sev_5=[]; data_temp_sev_7=[]; data_evwd_sev_1=[]; data_evwd_sev_3=[]
         data_euwd_sev_1=[]; data_euwd_sev_3=[]; data_euwd_sev_5=[]; data_euwd_sev_7=[]; data_evwd_sev_5=[]; data_evwd_sev_7=[]
         data_qvap_sev_1=[]; data_qvap_sev_3=[]; data_qvap_sev_5=[]; data_qvap_sev_7=[]; data_dbzs_sev_1=[]; data_maxw_sev_1=[]
-        data_pres_sev_1=[]; data_pres_sev_3=[]; data_pres_sev_5=[]; data_pres_sev_7=[]; data_ctts_sev_1=[]
+        data_pres_sev_1=[]; data_pres_sev_3=[]; data_pres_sev_5=[]; data_pres_sev_7=[]; data_ctts_sev_1=[]; data_mask_sev_1=[]
         data_wwnd_sev_1=[]; data_wwnd_sev_3=[]; data_wwnd_sev_5=[]; data_wwnd_sev_7=[]; data_uh25_sev_1=[]; data_uh03_sev_1=[]
 
         for time in time_temp:
@@ -312,6 +312,7 @@ class PreprocessData:
             data_ctts_sev_1.append(data_gen.ctt_grid[data_mask.grid.values,:,:])
             data_uh25_sev_1.append(data_gen.uh25_grid[data_mask.grid.values,:,:])
             data_uh03_sev_1.append(data_gen.uh03_grid[data_mask.grid.values,:,:])
+            data_mask_sev_1.append(data_gen.mask[data_mask.grid.values,:,:])
 
         data_temp_sev_1_patches=self.flatten_list(data_temp_sev_1)
         data_temp_sev_3_patches=self.flatten_list(data_temp_sev_3)
@@ -348,6 +349,7 @@ class PreprocessData:
         data_ctts_sev_1_patches=self.flatten_list(data_ctts_sev_1)
         data_uh25_sev_1_patches=self.flatten_list(data_uh25_sev_1)
         data_uh03_sev_1_patches=self.flatten_list(data_uh03_sev_1)
+        data_mask_sev_1_patches=self.flatten_list(data_mask_sev_1)
         
         data_assemble=xr.Dataset({
                        'temp_sev_1':(['patch','y','x'], np.array(data_temp_sev_1_patches)), 'temp_sev_3':(['patch','y','x'], np.array(data_temp_sev_3_patches)),
@@ -370,7 +372,7 @@ class PreprocessData:
 
                        'maxw_sev_1':(['patch','y','x'], np.array(data_maxw_sev_1_patches)), 'dbzs_sev_1':(['patch','y','x'], np.array(data_dbzs_sev_1_patches)),
                        'ctts_sev_1':(['patch','y','x'], np.array(data_ctts_sev_1_patches)), 'uh25_sev_1':(['patch','y','x'], np.array(data_uh25_sev_1_patches)),
-                       'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), })
+                       'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), 'mask_sev_1':(['patch','y','x'], np.array(data_mask_sev_1_patches))})
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
         print(f"Exceedances for {time.strftime('%m')} complete...")
@@ -390,7 +392,7 @@ class PreprocessData:
         data_temp_sev_1=[]; data_temp_sev_3=[]; data_temp_sev_5=[]; data_temp_sev_7=[]; data_evwd_sev_1=[]; data_evwd_sev_3=[]
         data_euwd_sev_1=[]; data_euwd_sev_3=[]; data_euwd_sev_5=[]; data_euwd_sev_7=[]; data_evwd_sev_5=[]; data_evwd_sev_7=[]
         data_qvap_sev_1=[]; data_qvap_sev_3=[]; data_qvap_sev_5=[]; data_qvap_sev_7=[]; data_dbzs_sev_1=[]; data_maxw_sev_1=[]
-        data_pres_sev_1=[]; data_pres_sev_3=[]; data_pres_sev_5=[]; data_pres_sev_7=[]; data_ctts_sev_1=[]
+        data_pres_sev_1=[]; data_pres_sev_3=[]; data_pres_sev_5=[]; data_pres_sev_7=[]; data_ctts_sev_1=[]; data_mask_sev_1=[]
         data_wwnd_sev_1=[]; data_wwnd_sev_3=[]; data_wwnd_sev_5=[]; data_wwnd_sev_7=[]; data_uh25_sev_1=[]; data_uh03_sev_1=[]
 
         for time in time_temp:
@@ -443,6 +445,7 @@ class PreprocessData:
             data_ctts_sev_1.append(np.delete(data_gen.ctt_grid.values,  data_mask.grid.values, axis=0))
             data_uh25_sev_1.append(np.delete(data_gen.uh25_grid.values, data_mask.grid.values, axis=0))
             data_uh03_sev_1.append(np.delete(data_gen.uh03_grid.values, data_mask.grid.values, axis=0))
+            data_mask_sev_1.append(np.delete(data_gen.mask.values, data_mask.grid.values, axis=0))
 
         data_temp_sev_1_patches=self.flatten_arraylist(data_temp_sev_1)
         data_temp_sev_3_patches=self.flatten_arraylist(data_temp_sev_3)
@@ -479,6 +482,7 @@ class PreprocessData:
         data_ctts_sev_1_patches=self.flatten_arraylist(data_ctts_sev_1)
         data_uh25_sev_1_patches=self.flatten_arraylist(data_uh25_sev_1)
         data_uh03_sev_1_patches=self.flatten_arraylist(data_uh03_sev_1)
+        data_mask_sev_1_patches=self.flatten_arraylist(data_mask_sev_1)
         
         data_assemble=xr.Dataset({
                        'temp_sev_1':(['patch','y','x'], np.array(data_temp_sev_1_patches)), 'temp_sev_3':(['patch','y','x'], np.array(data_temp_sev_3_patches)),
@@ -501,7 +505,7 @@ class PreprocessData:
 
                        'maxw_sev_1':(['patch','y','x'], np.array(data_maxw_sev_1_patches)), 'dbzs_sev_1':(['patch','y','x'], np.array(data_dbzs_sev_1_patches)),
                        'ctts_sev_1':(['patch','y','x'], np.array(data_ctts_sev_1_patches)), 'uh25_sev_1':(['patch','y','x'], np.array(data_uh25_sev_1_patches)),
-                       'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), })
+                       'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), 'mask_sev_1':(['patch','y','x'], np.array(data_mask_sev_1_patches))})
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
         print(f"Non exceedances for {time.strftime('%m')} complete...")
