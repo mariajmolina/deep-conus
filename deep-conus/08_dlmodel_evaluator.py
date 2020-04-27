@@ -16,7 +16,7 @@ class EvaluateDLModel:
         climate (str): Whether to interpolate variable in the ``current`` or ``future`` climate simulation.
         method (str): Method for parsing data. Options include ``random``, ``month``, ``season``, ``year``.
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
-                         ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
+                         ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, ``MASK``, and``UH03``.
         var_directory (str): Directory where the test subset variable data is saved.
         model_directory (str): Directory where the deep learning model is saved.
         model_num (str): The number of the model as it was saved.
@@ -35,7 +35,6 @@ class EvaluateDLModel:
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        * Troubleshoot bug with ``nans`` showing up in UH03 data.
         
     """
     
@@ -122,12 +121,13 @@ class EvaluateDLModel:
                'CTT':'CTT',
                'UH25':'UH25',
                'UH03':'UH03',
+               'MASK':'MASK',
               }
         try:
             out=var[variable]
             return out
         except:
-            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``MASK``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
             
     
     def add_dbz(self):
@@ -152,6 +152,14 @@ class EvaluateDLModel:
         
         """
         self.variables=np.append(self.variables, 'UH03')
+        
+        
+    def add_mask(self):
+        
+        """Function that adds ``MASK`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'MASK')
             
             
     def open_test_files(self):
@@ -165,6 +173,7 @@ class EvaluateDLModel:
         self.add_dbz()
         self.add_uh25()
         #self.add_uh03()    #add once UH03 data is fixed
+        self.add_mask()
         the_data={}
         if self.method=='random':
             for var in self.variables:
@@ -236,7 +245,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-2])                  #change to -3 once UH03 data is fixed
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-3])                  #change to -4 once UH03 data is fixed
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -437,12 +446,13 @@ class EvaluateDLModel:
                'CTT':'CTT',
                'UH25':'UH25',
                'UH03':'UH03',
+               'MASK':'MASK',
               }
         try:
             out=var[variable]
             return out
         except:
-            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MASK``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
         
         
     def apply_variable_dictionary(self):
@@ -455,6 +465,7 @@ class EvaluateDLModel:
         var_list2=np.append(var_list2, 'DBZ')
         var_list2=np.append(var_list2, 'UH25')
         #var_list2=np.append(var_list2, 'UH03')      #UNCOMMENT when UH03 is fixed
+        var_list2=np.append(var_list2, 'MASK')
         return var_list2
         
         

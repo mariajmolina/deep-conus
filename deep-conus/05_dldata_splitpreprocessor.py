@@ -365,6 +365,8 @@ class SplitAndStandardize:
             data (numpy array): Input data standardized.
             
         """
+        if self.variable=="UH03":
+            data[np.isinf(data)]=0.0
         return np.divide((data - np.nanmean(data)), np.nanstd(data))
 
 
@@ -380,6 +382,9 @@ class SplitAndStandardize:
             test (numpy array): Input testing data standardized.
             
         """
+        if self.variable=="UH03":
+            train[np.isinf(train)]=0.0
+            test[np.isinf(test)]=0.0
         return np.divide((test - np.nanmean(train)), np.nanstd(train))
 
         
