@@ -26,7 +26,7 @@ class DLTraining:
         working_directory (str): Directory path to save DL model.
         dlfile_directory (str): Directory path where train data is stored.
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
-                         ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
+                         ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, ``UH03``, and ``MASK``.
         model_num (int): Number assignment for the model.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
@@ -55,6 +55,9 @@ class DLTraining:
         
     Raises:
         Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
+        
+    Todo:
+        * Add a training with masked out data option.
         
     """
     
@@ -154,12 +157,13 @@ class DLTraining:
                'CTT':'CTT',
                'UH25':'UH25',
                'UH03':'UH03',
+               'MASK':'MASK',
               }
         try:
             out=var[variable]
             return out
         except:
-            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, ``MASK``, or ``DBZ`` as variable.")
             
 
     def initiate_session(self):
@@ -169,8 +173,8 @@ class DLTraining:
         """
         config=tf.compat.v1.ConfigProto()
         config.gpu_options.allow_growth=True  # dynamically grow the memory used on the GPU
-        config.log_device_placement=True  # to log device placement (on which device the operation ran)
-                                            # (nothing gets printed in Jupyter, only if you run it standalone)
+        config.log_device_placement=True      # to log device placement (on which device the operation ran)
+                                              # (nothing gets printed in Jupyter, only if you run it standalone)
         sess=tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
     
@@ -357,11 +361,11 @@ class DLTraining:
             
         """
         history=model.fit(x=data, 
-                            y=label, 
-                            validation_split=self.validation_split, 
-                            batch_size=self.batch_size, 
-                            epochs=self.epochs, 
-                            shuffle=True)
+                          y=label, 
+                          validation_split=self.validation_split, 
+                          batch_size=self.batch_size, 
+                          epochs=self.epochs, 
+                          shuffle=True)
         pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
         save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
     

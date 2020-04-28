@@ -154,6 +154,22 @@ class EvaluateDLModel:
         self.variables=np.append(self.variables, 'UH03')
         
         
+    def add_wmax(self):
+        
+        """Function that adds ``WMAX`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'WMAX')
+        
+        
+    def add_ctt(self):
+        
+        """Function that adds ``CTT`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'CTT')
+        
+        
     def add_mask(self):
         
         """Function that adds ``MASK`` variable to last dim of test data array.
@@ -172,7 +188,9 @@ class EvaluateDLModel:
         """
         self.add_dbz()
         self.add_uh25()
-        #self.add_uh03()    #add once UH03 data is fixed
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
         self.add_mask()
         the_data={}
         if self.method=='random':
@@ -245,7 +263,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-3])                  #change to -4 once UH03 data is fixed
+        self.model_probability_forecasts=model.predict(self.test_data[...,:-6])
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -404,19 +422,19 @@ class EvaluateDLModel:
         """
         #true - positives
         self.tp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #true - positives, prediction probability exceeding 95% confidence (very correct, severe)
+        #true - positives, prediction probability exceeding 99% confidence (very correct, severe)
         self.tp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #false - positives
         self.fp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        #false - positives, prediction probability exceeding 95% confidence (very incorrect, severe)
+        #false - positives, prediction probability exceeding 99% confidence (very incorrect, severe)
         self.fp_99_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #false - negatives
         self.fn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #false - negatives; prediction probability below 5% (very incorrect, nonsevere)
+        #false - negatives; prediction probability below 1% (very incorrect, nonsevere)
         self.fn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #true negative
         self.tn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        #true negative, prediction probability below 5% (very correct, nonsevere)
+        #true negative, prediction probability below 1% (very correct, nonsevere)
         self.tn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         
         
@@ -460,11 +478,13 @@ class EvaluateDLModel:
         """Create the list of features to feed as Xarray dataset attribute in ``save_indx_variables``.
         
         """
-        var_list=[self.add_heights_to_variables(var) for var in self.variables[:-2]]   #change to -3 when UH03 is fixed
+        var_list=[self.add_heights_to_variables(var) for var in self.variables[:-6]]
         var_list2=[m for me in var_list for m in me]
         var_list2=np.append(var_list2, 'DBZ')
         var_list2=np.append(var_list2, 'UH25')
-        #var_list2=np.append(var_list2, 'UH03')      #UNCOMMENT when UH03 is fixed
+        var_list2=np.append(var_list2, 'UH03')
+        var_list2=np.append(var_list2, 'WMAX')
+        var_list2=np.append(var_list2, 'CTT')
         var_list2=np.append(var_list2, 'MASK')
         return var_list2
         

@@ -74,6 +74,31 @@ class CreateEvaluationData:
         """
         if not np.isin('UH03', self.variables):
             self.variables=np.append(self.variables, 'UH03')
+            
+            
+    def add_wmax(self):
+        
+        """Function that adds ``WMAX`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'WMAX')
+        
+        
+    def add_ctt(self):
+        
+        """Function that adds ``CTT`` variable to last dim of test data array.
+        
+        """
+        self.variables=np.append(self.variables, 'CTT')
+            
+            
+    def add_mask(self):
+        
+        """Function that adds ``UH03`` variable to variable list if not already contained.
+        
+        """
+        if not np.isin('MASK', self.variables):
+            self.variables=np.append(self.variables, 'MASK')
     
         
     def variable_translate(self, variable):
@@ -102,12 +127,13 @@ class CreateEvaluationData:
                'CTT':'CTT',
                'UH25':'UH25',
                'UH03':'UH03',
+               'MASK':'MASK',
               }
         try:
             out=var[variable]
             return out
         except:
-            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
+            raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, ``MASK``, or ``DBZ`` as variable.")
 
             
     def open_files_and_run_method(self):
@@ -118,6 +144,9 @@ class CreateEvaluationData:
         self.add_dbz()
         self.add_uh25()
         self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
         for var in self.variables:
             print(f"Opening {var}...")
             data=xr.open_mfdataset(f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
