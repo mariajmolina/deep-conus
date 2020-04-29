@@ -48,9 +48,7 @@ class StudyVisualizer:
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
         * Add evaluation of UH25 and UH03 for failure cases.
-        * Add computation of wind shear.
         * Add binning for heatmap.
-        * Add annotation for indices of examples to select extremes from plot of current versus future.
         
     """
 
@@ -160,8 +158,8 @@ class StudyVisualizer:
         
         """
         data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
-        self.eu_mean=data.train_mean.values[self.convert_string_height()[0][0]]
-        self.eu_std=data.train_std.values[self.convert_string_height()[0][0]]
+        self.eu_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
+        self.eu_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
         
         
     def extract_ev_mean_and_std(self):
@@ -170,8 +168,8 @@ class StudyVisualizer:
         
         """
         data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
-        self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
-        self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
+        self.ev_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
+        self.ev_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
     
     
     def extract_dbz_mean_and_std(self):
@@ -348,10 +346,53 @@ class StudyVisualizer:
         return plt.show()
     
     
+    def compute_wind_shear(self, current_data, future_data, comp_str):
+        
+        """Computation of wind shear.
+        
+        """
+        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist.nc")
+        current_eu1_mean=data.train_mean.values[0]
+        current_eu1_std=data.train_std.values[0]
+        current_eu2_mean=data.train_mean.values[0]
+        current_eu2_std=data.train_std.values[0]
+        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist.nc")
+        current_ev1_mean=data.train_mean.values[0]
+        current_ev1_std=data.train_std.values[0]
+        current_ev2_mean=data.train_mean.values[0]
+        current_ev2_std=data.train_std.values[0]
+        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist.nc")
+        future_eu1_mean=data.train_mean.values[0]
+        future_eu1_std=data.train_std.values[0]
+        future_eu2_mean=data.train_mean.values[0]
+        future_eu2_std=data.train_std.values[0]
+        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist.nc")
+        future_ev1_mean=data.train_mean.values[0]
+        future_ev1_std=data.train_std.values[0]
+        future_ev2_mean=data.train_mean.values[0]
+        future_ev2_std=data.train_std.values[0]
+        
+        current_mask_data=current_data.sel(features='MASK')
+        current_u_wind1=current_data.sel(features='EU1')[comp_str].where(current_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        current_u_wind2=current_data.sel(features='EU5')[comp_str].where(current_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        current_v_wind1=current_data.sel(features='EV1')[comp_str].where(current_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        current_v_wind2=current_data.sel(features='EV5')[comp_str].where(current_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        current_u_total = (current_u_wind2 * current_eu2_std + current_eu2_mean) - (current_u_wind1  * current_eu1_std + current_eu1_mean)
+        current_v_total = (current_v_wind2 * current_ev2_std + current_ev2_mean) - (current_v_wind1  * current_ev1_std + current_ev1_mean)
+        current_wind = np.sqrt(current_u_total**2 + current_v_total**2)
+        
+        future_mask_data=future_data.sel(features='MASK')
+        future_u_wind1=future_data.sel(features='EU1')[comp_str].where(future_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        future_u_wind2=future_data.sel(features='EU5')[comp_str].where(future_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        future_v_wind1=future_data.sel(features='EV1')[comp_str].where(future_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        future_v_wind2=future_data.sel(features='EV5')[comp_str].where(future_mask_data[comp_str]).max(axis=(1,2), skipna=True)
+        future_u_total = (future_u_wind2 * future_eu2_std + future_eu2_mean) - (future_u_wind1  * future_eu1_std + future_eu1_mean)
+        future_v_total = (future_v_wind2 * future_ev2_std + future_ev2_mean) - (future_v_wind1  * future_ev1_std + future_ev1_mean)
+        future_wind = np.sqrt(future_u_total**2 + future_v_total**2)
+        return current_wind, future_wind
     
     
-    
-def plot_current_and_future(current_data, future_data, markersize, marker, facecolor, color=['b','r']):
+def plot_current_and_future(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
     
     """Plot current and future variable data for a select composite type.
     
@@ -366,9 +407,44 @@ def plot_current_and_future(current_data, future_data, markersize, marker, facec
     
     """
     plt.scatter(current_data[0], current_data[1], c=color[0], s=markersize, marker=marker, facecolors=facecolor)
-    plt.scatter(future_data[0], future_data[1], c=color[1], s=markersize, marker=marker, facecolors=facecolor)
-    plt.xlabel(futuredata.variable1)
-    plt.ylabel(futuredata.variable2)
+    plt.scatter(future_data[0], future_data[1], c=color[1], s=markersize, marker=marker, facecolors=facecolor, alpha=0.5)
+    if xlabel:
+        plt.xlabel(xlabel)
+    if ylabel:
+        plt.ylabel(ylabel)
     return plt.show()
+
+
+
+#def annotate_current_and_future_indices(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
+    
+#    """Plot current and future variable data for a select composite type.
+    
+#    Args: 
+#        current_data (xarray dataset): Current climate data. (self.grab_value_of_storm(data, group_choice=comp_type))
+#        future_data (xarray dataset): Future climate data. (self.grab_value_of_storm(future_data, group_choice=comp_type))
+#        composite_type (str): The 2x2 contingency table option for visualizing (e.g., ``tn``, ``tp``, ``fn``, and ``fp``.)
+#        color (str): List of two corresponding colors for plotting the scatters. Defaults to ``b`` and ``r``.
+#        marker_sizes (int): Size of the marker.
+#        markers (str): Type of marker for the plot (e.g., .,,,o,v,^,<,>,*,h,H,+,x,X,D,d,|,_).
+#        fillstyles (str): Whether to fill or not fill the facecolor. Options include ``none`` and ``full``.        
+    
+#    """
+#    fig=plt.figure(figsize=(8,8), dpi=200, facecolor='w', edgecolor='k')
+#    for i, txt in enumerate(range(0,current_data[0].shape[0])):
+#        plt.annotate(txt, (current_data[0][i], current_data[1][i]), horizontalalignment='left', verticalalignment='center', 
+#                     rotation=0, color=color[0], fontsize=12, zorder=2)
+#        
+#    for i, txt in enumerate(range(0,future_data[0].shape[0])):
+#        plt.annotate(txt, (future_data[0][i], future_data[1][i]), horizontalalignment='left', verticalalignment='center', 
+#                     rotation=0, color=color[0], fontsize=12, zorder=2)
+#    
+#    if xlabel:
+#        plt.xlabel(xlabel)
+#    if ylabel:
+#        plt.ylabel(ylabel)
+#        
+#    plt.savefig(f'/glade/work/molina/DATA/temp_figs/testing.png', bbox_inches='tight', pad_inches=0.075, dpi=200)
+#    return
     
     
