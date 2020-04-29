@@ -390,8 +390,8 @@ class PermutationFeatureImportance:
                           batch_size=self.batch_size, 
                           epochs=self.epochs, 
                           shuffle=True)
-        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
-        save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
+        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}_{self.variable_to_shuffle}.csv')
+        save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}_{self.variable_to_shuffle}.h5")
     
 
     def sequence_funcs(self):
