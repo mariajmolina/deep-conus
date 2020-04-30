@@ -59,12 +59,12 @@ class PermutationFeatureImportance:
                                     final dimensionality to simplify interpretation techniques. Defaults to ``False``.
         additional_dense_units (int): Units for the ``additional_dense`` layer. Defaults to ``32``.
         additional_dense_activation (str): Activation function for the ``additional_dense`` layer. Defaults to ``relu``.
+        bootstrap_runs (boolean): Whether to run a bootstrap set of the permuted variables. Defaults to ``False``.
+        bootstrap_iter (int): The number of bootstrap sets to run to compute confidence intervals for subsequent significance testing.
+                              Defaults to ``10,000``.
         
     Raises:
         Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
-        
-    Todo:
-        * Add bootstrap option with number to iterate.
         
     """
     
@@ -75,7 +75,8 @@ class PermutationFeatureImportance:
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10, 
                  pool_method='mean', batch_norm=True, spatial_drop=True, 
-                 additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
+                 additional_dense=False, additional_dense_units=32, additional_dense_activation='relu',
+                 bootstrap_runs=False, bootstrap_iter=10000):
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
@@ -137,6 +138,9 @@ class PermutationFeatureImportance:
         if self.additional_dense:
             self.additional_dense_units=additional_dense_units
             self.additional_dense_activation=additional_dense_activation
+
+        self.bootstrap_runs=bootstrap_runs
+        self.bootstrap_iter=bootstrap_iter
         
         
     def variable_translate(self, variable):
@@ -244,19 +248,21 @@ class PermutationFeatureImportance:
         return traindata, trainlabel
     
     
-    def variable_shuffler(self, data):
+    def variable_shuffler(self, data, num):
         
         """Shuffle the variable (feature) selected for training in PFI technique.
         
         Args:
             data (numpy array): Training data with ``nans`` removed.
+            num (int): Integer input into random seed setter.
             
         Returns:
             data (numpy array): Training data with ``nans`` removed and one variable shuffled.
         
         """
+        np.random.seed(num)
         random_indxs=np.array([np.random.choice(data[:,:,:,:].shape[0]) for i in range(data[:,:,:,:].shape[0])])
-        data[:,:,:,self.variable_to_shuffle]=data[random_indxs,:,:,self.variable_to_shuffle].values
+        data[:,:,:,self.variable_to_shuffle]=data[random_indxs,:,:,self.variable_to_shuffle]
         return data
     
     
@@ -373,7 +379,7 @@ class PermutationFeatureImportance:
         return model
         
         
-    def train_dl(self, model, data, label):
+    def train_dl(self, model, data, label, num):
         
         """Train the compiled DL model, save the trained model, and save the history and metric information from training to 
         ``self.dl_filedirectory``.
@@ -382,16 +388,22 @@ class PermutationFeatureImportance:
             model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
             data (numpy array): Training data with ``nans`` removed.
             label (numpy array): Corresponding labels of data.
+            num (int): The iteration number of the bootstrap.
             
         """
+        if self.print_sequential:
+            print("Shuffling variable...")
+        data=self.variable_shuffler(data, num)
+        
         history=model.fit(x=data, 
                           y=label, 
                           validation_split=self.validation_split, 
                           batch_size=self.batch_size, 
                           epochs=self.epochs, 
                           shuffle=True)
-        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}_{self.variable_to_shuffle}.csv')
-        save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}_{self.variable_to_shuffle}.h5")
+        
+        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}_var{self.variable_to_shuffle}_boot{str(num)}.csv')
+        save_model(model,                    f'/{self.working_directory}/model_{self.model_num}_{self.climate}_var{self.variable_to_shuffle}_boot{str(num)}.h5')
     
 
     def sequence_funcs(self):
@@ -412,14 +424,15 @@ class PermutationFeatureImportance:
             print("Removing nans...")
         train_data, label_data=self.omit_nans(train_data, label_data)
         if self.print_sequential:
-            print("Shuffling variable...")
-        train_data=self.variable_shuffler(train_data)
-        if self.print_sequential:
             print("Compiling model...")
         model=self.compile_model(train_data)
         if self.print_sequential:
             print("Training model...")
-        self.train_dl(model, train_data, label_data)
+        if not self.bootstrap_runs:
+            self.train_dl(model, train_data, label_data, num=0)
+        if self.bootstrap_runs:
+            for i in range(self.bootstrap_iter):
+                self.train_dl(model, train_data, label_data, num=i+1)
         data=None
         train_data=None
         label_data=None
