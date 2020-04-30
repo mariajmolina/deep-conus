@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.cluster import contingency_matrix
 from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 
 
 class EvaluateDLModel:
@@ -29,17 +30,24 @@ class EvaluateDLModel:
         obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
         print_sequential (boolean): Whether the sequential function calls to save files will output status statements.
                                     Defaults to ``True``.
+        perm_feat_importance (boolean): Whether to compute permutation feature importance. One variable will be permuted at a time. Defaults to ``False``.
+        pfi_variable (int): The variable to permute for permutation feature importance. Defaults to ``None``.
+        pfi_iterations (int): The number of sets to run to compute confidence intervals for subsequent significance testing of permutation
+                              feature importance. Defaults to ``10,000``.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
+        * Add multiprocessing option.
+        * Add PFI iteration resume option.
         
     """
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, 
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
+                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=10000):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -69,6 +77,9 @@ class EvaluateDLModel:
         self.year_choice=year_choice
         self.obs_threshold=obs_threshold
         self.print_sequential=print_sequential
+        self.perm_feat_importance=perm_feat_importance
+        self.pfi_variable=pfi_variable
+        self.pfi_iterations=pfi_iterations
         
     
     def month_translate(self):
@@ -252,7 +263,23 @@ class EvaluateDLModel:
         self.test_labels=data.X_test_label.values
         testdata=None
         label=None
-    
+        
+        
+    def variable_shuffler(self, num):
+        
+        """Shuffle the variable (feature) selected for training in PFI technique.
+        
+        Args:
+            num (int): Integer input into random seed setter.
+        
+        #For reference, this is the bootstrap version:
+        #random_indxs=np.array([np.random.choice(data[:,:,:,:].shape[0]) for i in range(data[:,:,:,:].shape[0])])
+        #data2[:,:,:,self.variable_to_shuffle]=data[random_indxs,:,:,self.variable_to_shuffle]
+        
+        """
+        np.random.seed(num)
+        self.test_data[:,:,:,self.pfi_variable]=self.test_data[np.random.permutation(self.test_data.shape[0]),:,:,self.pfi_variable]
+
     
     def load_and_predict(self):
         
@@ -339,6 +366,48 @@ class EvaluateDLModel:
         
         """
         return np.divide(self.cont_matrix[0][1], self.cont_matrix[0][1] + self.cont_matrix[1][1])
+    
+    
+    def auc_score(self):
+        
+        """Computation of the AUC score (Area Under the Receiver Operating Characteristic Curve).
+        
+        Returns:
+            AUC score (float).
+        
+        """
+        return roc_auc_score(self.test_labels, self.model_probability_forecasts)
+    
+    
+    def brier_score(self, observations, forecasts):
+        
+        #from David John Gagne's DeepSky
+        """Brier score: 
+        Squared error of the probability forecasts
+        Basically the same as mean squared error
+        perfect forecast = 0 (BS), BS=1 are bad forecasts
+
+        Answers the question: What is the magnitude of the probability forecast errors?
+        Measures the mean squared probability error. Murphy (1973) showed that it could be partitioned into 
+        three terms: (1) reliability, (2) resolution, and (3) uncertainty.
+        Range: 0 to 1.  Perfect score: 0. (https://www.cawcr.gov.au/projects/verification/)
+        
+        """
+        return np.nanmean((forecasts - observations) ** 2)
+
+
+    def brier_skill_score(self):
+        
+        #from David John Gagne's DeepSky
+        """Answers the question: What is the relative skill of the probabilistic forecast over that of climatology, 
+        in terms of predicting whether or not an event occurred?
+        Range: -∞ to 1, 0 indicates no skill when compared to the reference forecast. Perfect score: 1.
+        (https://www.cawcr.gov.au/projects/verification/)
+        
+        """
+        bs_climo = self.brier_score(self.test_labels, np.nanmean(self.test_labels))
+        bs = self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
+        return 1.0 - bs / bs_climo
 
     
     def assign_thresholds(self):
@@ -350,7 +419,7 @@ class EvaluateDLModel:
         _, _, self.thresholds=roc_curve(self.test_labels, self.model_probability_forecasts)
     
             
-    def nonscalar_metrics_and_save(self):
+    def nonscalar_metrics_and_save(self, num=None):
         
         """Evaluate the DL model using varying thresholds and a series of error metrics and save results as a csv file.
         
@@ -377,17 +446,21 @@ class EvaluateDLModel:
                 far = 0.
             self.contingency_nonscalar_table.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far]
         if self.method=='random':
-            self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+            if not self.perm_feat_importance:
+                self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+            if self.perm_feat_importance:
+                self.contingency_nonscalar_table.to_csv(
+                    f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
                 
 
-    def scalar_metrics_and_save(self):
+    def scalar_metrics_and_save(self, num=None):
         
         """Evaluate the DL model using a scalar threshold and a series of error metrics and save results as a csv file.
         
         """
-        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 13), dtype=int),
+        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 15), dtype=int),
                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
-                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate"])
+                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate", "AUC", "BSS"])
         tp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         fp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
         fn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
@@ -410,10 +483,16 @@ class EvaluateDLModel:
         bs=self.bias()
         hr=self.hit_rate()
         farate=self.false_alarm_rate()
-        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate]
+        auc_score=self.auc_score()
+        bss_score=self.brier_skill_score()
+        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score, bss_score]
         if self.method=='random':
-            self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
-        
+            if not self.perm_feat_importance:
+                self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+            if self.perm_feat_importance:
+                self.contingency_scalar_table.to_csv(
+                    f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                
         
     def grab_verification_indices(self):
         
@@ -489,7 +568,7 @@ class EvaluateDLModel:
         return var_list2
         
         
-    def save_indx_variables(self):
+    def save_indx_variables(self, num=None):
         
         """Extract the respective test data cases using indices from ``grab_verification_indices``.
         
@@ -522,16 +601,32 @@ class EvaluateDLModel:
         data=self.open_test_files()
         testdata, labels=self.assemble_and_concat(**data)
         self.remove_nans(testdata, labels)
-        if self.print_sequential:
-            print("Generating DL predictions...")
-        self.load_and_predict()
-        if self.print_sequential:
-            print("Generating probabilistic and nonprobabilistic skill scores...")
-        self.nonscalar_metrics_and_save()
-        self.scalar_metrics_and_save()
-        if self.print_sequential:
-            print("Saving the indexed variables...")
-        self.save_indx_variables()
-        if self.print_sequential:
-            print("Evaluation is complete.")
+
+        if not self.perm_feat_importance:
+            if self.print_sequential:
+                print("Generating DL predictions...")
+            self.load_and_predict()
+            if self.print_sequential:
+                print("Generating probabilistic and nonprobabilistic skill scores...")
+            self.nonscalar_metrics_and_save()
+            self.scalar_metrics_and_save()
+            if self.print_sequential:
+                print("Saving the indexed variables...")
+            self.save_indx_variables()
+            if self.print_sequential:
+                print("Evaluation is complete.")
+            
+        if self.perm_feat_importance:
+            for i in range(self.pfi_iterations):
+                print(f"Shuffling variable num {str(i)}...")
+                self.variable_shuffler(num=i)
+                if self.print_sequential:
+                    print("Generating DL predictions...")
+                self.load_and_predict()
+                if self.print_sequential:
+                    print("Generating probabilistic and nonprobabilistic skill scores...")
+                self.nonscalar_metrics_and_save(num=i+1)
+                self.scalar_metrics_and_save(num=i+1)
+                if self.print_sequential:
+                    print("Evaluation is complete.")
         
