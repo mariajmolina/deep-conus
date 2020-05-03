@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.metrics.cluster import contingency_matrix
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
+import multiprocessing as mp
 
 
 class EvaluateDLModel:
@@ -33,21 +34,23 @@ class EvaluateDLModel:
         perm_feat_importance (boolean): Whether to compute permutation feature importance. One variable will be permuted at a time. Defaults to ``False``.
         pfi_variable (int): The variable to permute for permutation feature importance. Defaults to ``None``.
         pfi_iterations (int): The number of sets to run to compute confidence intervals for subsequent significance testing of permutation
-                              feature importance. Defaults to ``10,000``.
+                              feature importance. Defaults to ``None``.
+        num_cpus (int): Number of CPUs for parallel computing of PFI. Defaults to ``None``. No parallel computing if ``None``.
+        seed_indexer(int): Feature to help resume runs from mid-point locations of uncertainty quantification. Defaults to ``1``. 
+                           Recommended usage at 1,000 intervals to prevent excessive multiprocessing runtime.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        * Add multiprocessing option.
-        * Add PFI iteration resume option.
         
     """
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, 
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
-                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=10000):
+                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
+                 seed_indexer=1):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -80,6 +83,8 @@ class EvaluateDLModel:
         self.perm_feat_importance=perm_feat_importance
         self.pfi_variable=pfi_variable
         self.pfi_iterations=pfi_iterations
+        self.num_cpus=num_cpus
+        self.seed_indexer=seed_indexer
         
     
     def month_translate(self):
@@ -259,13 +264,12 @@ class EvaluateDLModel:
                     'X_test_label':(['b'], label),
                     },
                     ).dropna(dim='b')
-        self.test_data=data.X_test.values
+        test_data=data.X_test.values
         self.test_labels=data.X_test_label.values
-        testdata=None
-        label=None
+        return test_data
         
         
-    def variable_shuffler(self, num):
+    def variable_shuffler(self, test_data, num):
         
         """Shuffle the variable (feature) selected for training in PFI technique.
         
@@ -278,10 +282,12 @@ class EvaluateDLModel:
         
         """
         np.random.seed(num)
-        self.test_data[:,:,:,self.pfi_variable]=self.test_data[np.random.permutation(self.test_data.shape[0]),:,:,self.pfi_variable]
+        new_test_data=np.copy(test_data)
+        new_test_data[:,:,:,self.pfi_variable]=test_data[np.random.permutation(test_data.shape[0]),:,:,self.pfi_variable]
+        return new_test_data
 
     
-    def load_and_predict(self):
+    def load_and_predict(self, test_data):
         
         """Load the DL model and generate predictions with the input variable data.
         Make sure to input variables (features) in the same shape as were input to the model during training.
@@ -290,7 +296,7 @@ class EvaluateDLModel:
         
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
-        self.model_probability_forecasts=model.predict(self.test_data[...,:-6])
+        self.model_probability_forecasts=model.predict(test_data[...,:-6])
         self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
@@ -451,6 +457,7 @@ class EvaluateDLModel:
             if self.perm_feat_importance:
                 self.contingency_nonscalar_table.to_csv(
                     f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        return
                 
 
     def scalar_metrics_and_save(self, num=None):
@@ -492,6 +499,7 @@ class EvaluateDLModel:
             if self.perm_feat_importance:
                 self.contingency_scalar_table.to_csv(
                     f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        return
                 
         
     def grab_verification_indices(self):
@@ -568,21 +576,21 @@ class EvaluateDLModel:
         return var_list2
         
         
-    def save_indx_variables(self, num=None):
+    def save_indx_variables(self, test_data, num=None):
         
         """Extract the respective test data cases using indices from ``grab_verification_indices``.
         
         """
         self.grab_verification_indices()
         data=xr.Dataset({
-            'tp':(['a','x','y','features'], self.test_data[self.tp_indx,:,:,:].squeeze()),
-            'tp_99':(['b','x','y','features'], self.test_data[self.tp_99_indx,:,:,:].squeeze()),
-            'fp':(['c','x','y','features'], self.test_data[self.fp_indx,:,:,:].squeeze()),
-            'fp_99':(['d','x','y','features'], self.test_data[self.fp_99_indx,:,:,:].squeeze()),
-            'fn':(['e','x','y','features'], self.test_data[self.fn_indx,:,:,:].squeeze()),
-            'fn_01':(['f','x','y','features'], self.test_data[self.fn_01_indx,:,:,:].squeeze()),
-            'tn':(['g','x','y','features'], self.test_data[self.tn_indx,:,:,:].squeeze()),
-            'tn_01':(['h','x','y','features'], self.test_data[self.tn_01_indx,:,:,:].squeeze()),
+            'tp':(['a','x','y','features'], test_data[self.tp_indx,:,:,:].squeeze()),
+            'tp_99':(['b','x','y','features'], test_data[self.tp_99_indx,:,:,:].squeeze()),
+            'fp':(['c','x','y','features'], test_data[self.fp_indx,:,:,:].squeeze()),
+            'fp_99':(['d','x','y','features'], test_data[self.fp_99_indx,:,:,:].squeeze()),
+            'fn':(['e','x','y','features'], test_data[self.fn_indx,:,:,:].squeeze()),
+            'fn_01':(['f','x','y','features'], test_data[self.fn_01_indx,:,:,:].squeeze()),
+            'tn':(['g','x','y','features'], test_data[self.tn_indx,:,:,:].squeeze()),
+            'tn_01':(['h','x','y','features'], test_data[self.tn_01_indx,:,:,:].squeeze()),
             },
             coords=
             {'features':(['features'], self.apply_variable_dictionary()),
@@ -591,8 +599,29 @@ class EvaluateDLModel:
             data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         
         
-    def sequence_the_evaluation(self):
+    def sequence_pfi(self, testdata, num):
         
+        """The sequence of functions to call for permutation feature importance.
+        
+        Args:
+            num (int): The iteration seed for shuffling the variable.
+        
+        """
+        print(f"Shuffling variable num {str(num)}...")
+        test_data=self.variable_shuffler(testdata, num)
+        if self.print_sequential:
+            print("Generating DL predictions...")
+        self.load_and_predict(test_data)
+        if self.print_sequential:
+            print("Generating probabilistic and nonprobabilistic skill scores...")
+        self.nonscalar_metrics_and_save(num)
+        self.scalar_metrics_and_save(num)
+        if self.print_sequential:
+            print("Evaluation is complete.")
+            
+            
+    def sequence_the_evaluation(self):
+
         """Automation of the sequence of functions to produce deep learning model evaluation files.
         
         """
@@ -600,33 +629,72 @@ class EvaluateDLModel:
             print("Opening and preparing the test files...")
         data=self.open_test_files()
         testdata, labels=self.assemble_and_concat(**data)
-        self.remove_nans(testdata, labels)
-
+        testdata=self.remove_nans(testdata, labels)
+        data=None
+        labels=None
         if not self.perm_feat_importance:
             if self.print_sequential:
                 print("Generating DL predictions...")
-            self.load_and_predict()
+            self.load_and_predict(testdata)
             if self.print_sequential:
                 print("Generating probabilistic and nonprobabilistic skill scores...")
             self.nonscalar_metrics_and_save()
             self.scalar_metrics_and_save()
             if self.print_sequential:
                 print("Saving the indexed variables...")
-            self.save_indx_variables()
+            self.save_indx_variables(testdata)
             if self.print_sequential:
                 print("Evaluation is complete.")
-            
         if self.perm_feat_importance:
-            for i in range(self.pfi_iterations):
-                print(f"Shuffling variable num {str(i)}...")
-                self.variable_shuffler(num=i)
-                if self.print_sequential:
-                    print("Generating DL predictions...")
-                self.load_and_predict()
-                if self.print_sequential:
-                    print("Generating probabilistic and nonprobabilistic skill scores...")
-                self.nonscalar_metrics_and_save(num=i+1)
-                self.scalar_metrics_and_save(num=i+1)
-                if self.print_sequential:
-                    print("Evaluation is complete.")
+            if not self.pfi_iterations:
+                self.sequence_pfi(testdata, num=0)
+            if self.pfi_iterations:
+                if not self.num_cpus:
+                    for i in range(self.pfi_iterations):
+                        self.sequence_pfi(testdata, num=i+self.seed_indexer)
+                if self.num_cpus:
+                    self.permutation_feat_importance()
+        testdata=None
+
+
+    def new_sequencing(self, num):
+        
+        """This is the function that multiprocessing will call to avoid overflow errors.
+        This is called by ``permutation_feat_importance``.
+        
+        """
+        if self.print_sequential:
+            print("Opening and preparing the test files...")
+        data=self.open_test_files()
+        testdata, labels=self.assemble_and_concat(**data)
+        testdata=self.remove_nans(testdata, labels)
+        data=None
+        labels=None
+        print(f"Shuffling variable num {str(num)}...")
+        test_data=self.variable_shuffler(testdata, num)
+        if self.print_sequential:
+            print("Generating DL predictions...")
+        self.load_and_predict(test_data)
+        if self.print_sequential:
+            print("Generating probabilistic and nonprobabilistic skill scores...")
+        self.nonscalar_metrics_and_save(num)
+        self.scalar_metrics_and_save(num)
+        if self.print_sequential:
+            print("Evaluation is complete.")
+        
+
+    def permutation_feat_importance(self):
+        
+        """Function to generate permutation feature importance uncertainty quantification.
+        
+        Todo:
+        * multiprocess generates errors in batch job submission on Cheyenne. Fix at some point.
+        
+        """        
+        pool=mp.Pool(self.num_cpus)
+        for i in range(self.pfi_iterations):
+            pool.apply_async(self.new_sequencing, args=([i+self.seed_indexer]))
+        pool.close()
+        pool.join()
+        print("completed")
         
