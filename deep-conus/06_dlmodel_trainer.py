@@ -28,7 +28,8 @@ class DLTraining:
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, ``UH03``, and ``MASK``.
         model_num (int): Number assignment for the model.
-        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
+        mask (boolean): Whether to train using the UH derived from masked data or non-masked data. Defaults to ``False``.
+        mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
         climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
         print_sequential (boolean): Whether to print the sequetial steps occurring during training. Defaults to ``True``.
         conv_1_mapnum (int): Number of activation maps in first conv layer. Defaults to 32.
@@ -57,12 +58,12 @@ class DLTraining:
         Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
         
     Todo:
-        * Add a training with masked out data option.
+        * Sort out mask_train option for variables with less than 4 features in ``transpose_load_concat``.
         
     """
     
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
-                 mask=False, climate='current', print_sequential=True,
+                 mask=False, mask_train=False, climate='current', print_sequential=True,
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
@@ -75,11 +76,19 @@ class DLTraining:
         self.variables=variables
         self.model_num=model_num
         
-        self.mask=mask
-        if not self.mask:
-            self.mask_str='nomask'
-        if self.mask:
+        self.mask_train=mask_train
+        
+        if not mask_train:
+            self.mask=mask
+            if not self.mask:
+                self.mask_str='nomask'
+            if self.mask:
+                self.mask_str='mask'
+            
+        if mask_train:
+            self.mask=True
             self.mask_str='mask'
+        
 
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` for climate option.")
@@ -179,6 +188,14 @@ class DLTraining:
         tf.compat.v1.keras.backend.set_session(sess)
     
     
+    def add_mask(self):
+        
+        """Function that adds ``MASK`` variable to last dim of test data array.
+        
+        """
+        return xr.open_dataset(f'/{test.dlfile_directory}/{test.climate}_mask_{test.mask_str}_dldata_traintest.nc')
+        
+    
     def open_files(self):
 
         """Open the training data files.
@@ -186,7 +203,7 @@ class DLTraining:
         Returns:
             datas: Dictionary of opened Xarray data arrays containing selected variable training data.
             
-        """
+        """            
         datas={}
         for var in self.variables:
             datas[var]=xr.open_dataset(f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
@@ -204,9 +221,15 @@ class DLTraining:
             X_train, label: Eagerly loaded training data and labels as a numpy array.
         
         """
+        if self.mask_train:
+            datamask=self.add_mask()
         thedatas={}
         for key, value in kwargs.items():
-            thedatas[key]=value.X_train.transpose('a','x','y','features').values
+            if not self.mask_train:
+                thedatas[key]=value.X_train.transpose('a','x','y','features').values
+            if self.mask_train:
+                temp=value.X_train.transpose('a','x','y','features').values
+                thedatas[key]=np.where(np.repeat(datamask['X_train'].values[...,np.newaxis], 4, axis=3)==0, 0, temp)
             label=value.X_train_label.values
         if len(kwargs) > 1:
             X_train=np.concatenate(list(thedatas.values()), axis=3)
@@ -342,6 +365,15 @@ class DLTraining:
         if self.additional_dense:
             model.add(Dense(units=self.additional_dense_units, activation=self.additional_dense_activation))
 
+        if self.batch_norm:
+            model.add(BatchNormalization(axis=1, momentum=0.99, epsilon=0.001, 
+                                         center=True, scale=True, 
+                                         beta_initializer='zeros', gamma_initializer='ones',
+                                         moving_mean_initializer='zeros', 
+                                         moving_variance_initializer='ones',
+                                         beta_regularizer=None, gamma_regularizer=None,
+                                         beta_constraint=None, gamma_constraint=None))
+            
         model.add(Dense(units=self.denseshape, activation=self.output_activation))
 
         model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])

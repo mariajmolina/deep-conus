@@ -24,6 +24,7 @@ class EvaluateDLModel:
         model_num (str): The number of the model as it was saved.
         eval_directory (str): Directory where evaluation files will be saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
+        mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
         month_choice (int): Month for analysis. Defaults to ``None``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
@@ -47,7 +48,7 @@ class EvaluateDLModel:
         
     """
     
-    def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, 
+    def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, mask_train=False,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
                  perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
                  seed_indexer=1):
@@ -68,10 +69,17 @@ class EvaluateDLModel:
         self.model_num=model_num
         self.eval_directory=eval_directory
         
-        self.mask=mask
-        if not self.mask:
-            self.mask_str='nomask'
-        if self.mask:
+        self.mask_train=mask_train
+        
+        if not mask_train:
+            self.mask=mask
+            if not self.mask:
+                self.mask_str='nomask'
+            if self.mask:
+                self.mask_str='mask'
+            
+        if mask_train:
+            self.mask=True
             self.mask_str='mask'
     
         self.random_choice=random_choice 
@@ -238,7 +246,10 @@ class EvaluateDLModel:
         """
         thedata={}
         for key, value in kwargs.items():
-            thedata[key]=value.X_test.values
+            if not self.mask_train:
+                thedata[key]=value.X_test.values
+            if self.mask_train:
+                thedata[key]=np.where(np.repeat(kwargs['MASK'].X_test.values, value.X_test.shape[-1],3)==0, 0, value.X_test.values)
             label=value.X_test_label.values
         if len(kwargs) > 1:
             testdata=np.concatenate(list(thedata.values()), axis=3)
@@ -413,7 +424,7 @@ class EvaluateDLModel:
         """
         bs_climo = self.brier_score(self.test_labels, np.nanmean(self.test_labels))
         bs = self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
-        return 1.0 - bs / bs_climo
+        return 1.0 - (bs / bs_climo)
 
     
     def assign_thresholds(self):
@@ -422,7 +433,8 @@ class EvaluateDLModel:
         Assigns new class attribute ``self.thresholds`` with the array of thresholds.
         
         """
-        _, _, self.thresholds=roc_curve(self.test_labels, self.model_probability_forecasts)
+        #_, _, self.thresholds=roc_curve(self.test_labels, self.model_probability_forecasts)
+        self.thresholds=np.hstack([2.0,np.flip(np.linspace(0.,1.,10000))])
     
             
     def nonscalar_metrics_and_save(self, num=None):
@@ -465,9 +477,9 @@ class EvaluateDLModel:
         """Evaluate the DL model using a scalar threshold and a series of error metrics and save results as a csv file.
         
         """
-        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 15), dtype=int),
+        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 16), dtype=int),
                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
-                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate", "AUC", "BSS"])
+                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate", "AUC", "BSS", "BS"])
         tp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
         fp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
         fn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
@@ -492,7 +504,8 @@ class EvaluateDLModel:
         farate=self.false_alarm_rate()
         auc_score=self.auc_score()
         bss_score=self.brier_skill_score()
-        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score, bss_score]
+        bs_score=self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
+        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score, bss_score, bs_score]
         if self.method=='random':
             if not self.perm_feat_importance:
                 self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
@@ -607,7 +620,7 @@ class EvaluateDLModel:
             num (int): The iteration seed for shuffling the variable.
         
         """
-        print(f"Shuffling variable num {str(num)}...")
+        print(f"Shuffling seed num {str(num)}...")
         test_data=self.variable_shuffler(testdata, num)
         if self.print_sequential:
             print("Generating DL predictions...")
