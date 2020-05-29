@@ -433,7 +433,7 @@ class StudyVisualizer:
             'qv_index_lower':(qv_indx_lower),
             'qv_rando_lower':(qv_rndm_lower),
             })
-        data.to_netcdf(f'{self.comp_directory}/outliers_qv_{self.mask_str}_model{self.model_num}_{group_choice}.nc')
+        data.to_netcdf(f'{self.comp_directory}/outliers_qv_{self.mask_str}_model{self.model_num}_{group_choice}_{upper_perc}.nc')
     
     
 def plot_current_and_future(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
