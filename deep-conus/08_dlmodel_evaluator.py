@@ -51,7 +51,7 @@ class EvaluateDLModel:
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, mask_train=False,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
                  perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
-                 seed_indexer=1):
+                 seed_indexer=1, outliers=False, upper_perc=99):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -93,6 +93,8 @@ class EvaluateDLModel:
         self.pfi_iterations=pfi_iterations
         self.num_cpus=num_cpus
         self.seed_indexer=seed_indexer
+        self.outliers=outliers
+        self.upper_perc=upper_perc
         
     
     def month_translate(self):
@@ -231,7 +233,91 @@ class EvaluateDLModel:
             for var in self.variables:
                 var   ##TODO 
         return the_data
+    
+    
+    def open_qv_files(self):
 
+        """Open the subset test data files.
+        
+        Returns:
+            the_data: Dictionary of opened Xarray data arrays containing selected variable training data.
+            
+        """
+        the_data={}
+        if self.method=='random':
+            for var in self.variables:
+                the_data[var]=xr.open_dataset(
+                    f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
+        if self.method=='month':
+            for var in self.variables:
+                var   ##TODO 
+        if self.method=='season':
+            for var in self.variables:
+                var   ##TODO 
+        if self.method=='year':
+            for var in self.variables:
+                var   ##TODO 
+        return the_data
+    
+    
+    def save_qv_files(self):
+
+        """Generate QVAPOR upper percentile file for testing outliers.
+            
+        """
+        data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
+        qv1_mean=data_dist.train_mean.values[0]
+        qv1_std=data_dist.train_std.values[0]
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        for rf_ in range(5):
+            print(rf_+1)
+            self.random_choice=rf_+1
+            data=self.open_qv_files()
+            testdata, labels =self.assemble_and_concat(**data)
+            newdata=xr.Dataset({
+                        'X_test':(['b','x','y','features'], testdata),
+                        'indices':(['b'], np.arange(0,testdata.shape[0],1)),
+                        'labels':(['b'], labels),
+                        },
+                        ).dropna(dim='b')
+            test_data=newdata.X_test.values
+            all_indices=newdata.indices.values
+            all_labels=newdata.labels.values
+            the_data=(np.nanmax(np.nanmax(np.ma.masked_where(test_data[:,:,:,-1]==0,
+                                test_data[:,:,:,(np.where(self.variables=='QVAPOR')[0]*4)[0]]),axis=2),axis=1)*qv1_std+qv1_mean).data
+            qv_upper=np.nanpercentile(the_data,self.upper_perc)
+            upperlim_qv=np.where(the_data>=qv_upper)[0]
+            data=xr.Dataset({
+                'testdata':(['b','x','y','features'],test_data[upperlim_qv,:,:,:]),
+                'testlabels':(['b'],all_labels[upperlim_qv]),
+                'qv_value':(qv_upper),
+                },
+                coords=
+                {'features':(['features'], self.apply_variable_dictionary()),
+                })
+            data.to_netcdf(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
+        return
+    
+    
+    def load_qv_files(self):
+        
+        """Load and concatenate the testdata and testlabels.
+        
+        """
+        data1=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random1_{self.upper_perc}.nc')
+        data2=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random2_{self.upper_perc}.nc')
+        data3=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random3_{self.upper_perc}.nc')
+        data4=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random4_{self.upper_perc}.nc')
+        data5=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random5_{self.upper_perc}.nc')
+        testdata=xr.concat([data1.testdata,data2.testdata,data3.testdata,data4.testdata,data5.testdata],dim='b').values
+        self.test_labels=xr.concat([data1.testlabels,data2.testlabels,data3.testlabels,data4.testlabels,data5.testlabels],dim='b').values
+        return testdata
+    
 
     def assemble_and_concat(self, **kwargs):
         
@@ -275,9 +361,7 @@ class EvaluateDLModel:
                     'X_test_label':(['b'], label),
                     },
                     ).dropna(dim='b')
-        test_data=data.X_test.values
-        self.test_labels=data.X_test_label.values
-        return test_data
+        data.to_netcdf(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
         
         
     def variable_shuffler(self, test_data, num):
@@ -463,12 +547,20 @@ class EvaluateDLModel:
             except ZeroDivisionError:
                 far = 0.
             self.contingency_nonscalar_table.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far]
-        if self.method=='random':
-            if not self.perm_feat_importance:
-                self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
-            if self.perm_feat_importance:
-                self.contingency_nonscalar_table.to_csv(
-                    f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        if not self.outliers:
+            if self.method=='random':
+                if not self.perm_feat_importance:
+                    self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                if self.perm_feat_importance:
+                    self.contingency_nonscalar_table.to_csv(
+                        f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        if self.outliers:
+            if self.method=='random':
+                if not self.perm_feat_importance:
+                    self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                if self.perm_feat_importance:
+                    self.contingency_nonscalar_table.to_csv(
+                        f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         return
                 
 
@@ -506,12 +598,20 @@ class EvaluateDLModel:
         bss_score=self.brier_skill_score()
         bs_score=self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
         self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score, bss_score, bs_score]
-        if self.method=='random':
-            if not self.perm_feat_importance:
-                self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
-            if self.perm_feat_importance:
-                self.contingency_scalar_table.to_csv(
-                    f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        if not self.outliers:
+            if self.method=='random':
+                if not self.perm_feat_importance:
+                    self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                if self.perm_feat_importance:
+                    self.contingency_scalar_table.to_csv(
+                        f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+        if self.outliers:
+            if self.method=='random':
+                if not self.perm_feat_importance:
+                    self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                if self.perm_feat_importance:
+                    self.contingency_scalar_table.to_csv(
+                        f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         return
                 
         
@@ -608,8 +708,12 @@ class EvaluateDLModel:
             coords=
             {'features':(['features'], self.apply_variable_dictionary()),
             })
-        if self.method=='random':
-            data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        if not self.outliers:
+            if self.method=='random':
+                data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        if self.outliers:
+            if self.method=='random':
+                data.to_netcdf(f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         
         
     def sequence_pfi(self, testdata, num):
@@ -632,19 +736,43 @@ class EvaluateDLModel:
         if self.print_sequential:
             print("Evaluation is complete.")
             
-            
+           
+    def generate_testfiles(self):
+        
+        """Function to create various testdata files for evaluation.
+        This is not for outliers.
+        
+        """
+        data=self.open_test_files()
+        testdata, labels=self.assemble_and_concat(**data)
+        self.remove_nans(testdata, labels)
+        data=None
+        labels=None
+        
+        
     def sequence_the_evaluation(self):
 
         """Automation of the sequence of functions to produce deep learning model evaluation files.
+        Make sure to have run ``generate_testfiles``.
         
         """
         if self.print_sequential:
             print("Opening and preparing the test files...")
-        data=self.open_test_files()
-        testdata, labels=self.assemble_and_concat(**data)
-        testdata=self.remove_nans(testdata, labels)
+            
+        #data=self.open_test_files()
+        #testdata, labels=self.assemble_and_concat(**data)
+        #testdata=self.remove_nans(testdata, labels)
+        #data=None
+        #labels=None
+        #test_data=data.X_test.values
+        #self.test_labels=data.X_test_label.values
+        #return test_data
+        
+        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_file}.nc')
+        testdata=data.X_test.values
+        self.test_labels=data.X_test_label.values
         data=None
-        labels=None
+        
         if not self.perm_feat_importance:
             if self.print_sequential:
                 print("Generating DL predictions...")
@@ -710,4 +838,43 @@ class EvaluateDLModel:
         pool.close()
         pool.join()
         print("completed")
+    
+    
+    def sequence_outlier_evaluation(self):
+
+        """Automation of the sequence of functions to produce deep learning model evaluation files.
+        Make sure to have run ``generate_testfiles``.
         
+        """
+        if self.print_sequential:
+            print("Opening and preparing the test files...")
+        testdata=self.load_qv_files()
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        if not self.perm_feat_importance:
+            if self.print_sequential:
+                print("Generating DL predictions...")
+            self.load_and_predict(testdata)
+            if self.print_sequential:
+                print("Generating probabilistic and nonprobabilistic skill scores...")
+            self.nonscalar_metrics_and_save()
+            self.scalar_metrics_and_save()
+            if self.print_sequential:
+                print("Saving the indexed variables...")
+            self.save_indx_variables(testdata)
+            if self.print_sequential:
+                print("Evaluation is complete.")
+        if self.perm_feat_importance:
+            if not self.pfi_iterations:
+                self.sequence_pfi(testdata, num=0)
+            if self.pfi_iterations:
+                if not self.num_cpus:
+                    for i in range(self.pfi_iterations):
+                        self.sequence_pfi(testdata, num=i+self.seed_indexer)
+                if self.num_cpus:
+                    self.permutation_feat_importance()
+        testdata=None

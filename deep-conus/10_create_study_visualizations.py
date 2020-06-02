@@ -392,50 +392,6 @@ class StudyVisualizer:
         return current_wind, future_wind
     
     
-    def outlier_qvapor(self, group_choice, lower_perc=2.5, upper_perc=97.5):
-        
-        """Computation and extraction of qvapor outliers. 
-        File saved contains the indices for the group choice (e.g., tp, tn, fp, fn) and random file.
-        
-        """
-        if self.variable1!='QVAPOR1':
-            raise Exception('Please enter qvapor1 as variable1 for this analysis.')
-        data_dist=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
-        qv1_mean=data_dist.train_mean.values[self.convert_string_height('QVAPOR1')[0][0]]
-        qv1_std=data_dist.train_std.values[self.convert_string_height('QVAPOR1')[0][0]]
-        all_randoms=[]
-        all_indices=[]
-        random_file=[]
-        for rf_ in range(5):
-            data=xr.open_dataset(f'{self.comp_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{rf_+1}.nc')
-            mask_data=data.sel(features='MASK')
-            max_var=data[group_choice][:,:,:,currentdata.extract_variable1_index(data)].where(mask_data[group_choice]).max(axis=(1,2), skipna=True)
-            all_indices.append(np.arange(0,max_var.size,1))
-            random_file.append(np.asarray([rf_ for i in np.arange(0,max_var.size,1)]))
-            all_randoms.append(max_var.values * qv1_std + qv1_mean)
-        qv_list=[item for sublist in all_randoms for item in sublist]
-        qv_indx=[item for sublist in all_indices for item in sublist]
-        qv_rndm=[item for sublist in random_file for item in sublist]
-        qv_list=np.asarray(qv_list)
-        qv_indx=np.asarray(qv_indx)
-        qv_rndm=np.asarray(qv_rndm)
-        qv_upper=np.nanpercentile(qv_list,upper_perc)
-        qv_lower=np.nanpercentile(qv_list,lower_perc)
-        upperlim_qv=np.where(qv_list>=qv_upper)[0]
-        lowerlim_qv=np.where(qv_list<=qv_lower)[0]
-        qv_indx_upper=qv_indx[upperlim_qv]
-        qv_rndm_upper=qv_rndm[upperlim_qv]
-        qv_indx_lower=qv_indx[lowerlim_qv]
-        qv_rndm_lower=qv_rndm[lowerlim_qv]
-        data=xr.Dataset({
-            'qv_index_upper':(qv_indx_upper),
-            'qv_rando_upper':(qv_rndm_upper),
-            'qv_index_lower':(qv_indx_lower),
-            'qv_rando_lower':(qv_rndm_lower),
-            })
-        data.to_netcdf(f'{self.comp_directory}/outliers_qv_{self.mask_str}_model{self.model_num}_{group_choice}_{upper_perc}.nc')
-    
-    
 def plot_current_and_future(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
     
     """Plot current and future variable data for a select composite type.
