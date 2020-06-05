@@ -63,12 +63,12 @@ class DLTraining:
     """
     
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
-                 mask=False, mask_train=False, climate='current', print_sequential=True,
+                 mask=False, mask_train=False, unbalanced=False, climate='current', print_sequential=True,
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10, 
-                 pool_method='mean', batch_norm=True, spatial_drop=True, 
+                 pool_method='mean', batch_norm=True, spatial_drop=True, spatial_drop_perc=0.3,
                  additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
 
         self.working_directory=working_directory
@@ -77,6 +77,7 @@ class DLTraining:
         self.model_num=model_num
         
         self.mask_train=mask_train
+        self.unbalanced=unbalanced
         
         if not mask_train:
             self.mask=mask
@@ -134,6 +135,7 @@ class DLTraining:
             self.pool_method=pool_method
         self.batch_norm=batch_norm
         self.spatial_drop=spatial_drop
+        self.spatial_drop_perc=spatial_drop_perc
         self.additional_dense=additional_dense
         if self.additional_dense:
             self.additional_dense_units=additional_dense_units
@@ -203,11 +205,19 @@ class DLTraining:
         Returns:
             datas: Dictionary of opened Xarray data arrays containing selected variable training data.
             
-        """            
-        datas={}
-        for var in self.variables:
-            datas[var]=xr.open_dataset(f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
-        return datas
+        """
+        if not self.unbalanced:
+            datas={}
+            for var in self.variables:
+                datas[var]=xr.open_dataset(
+                    f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
+            return datas
+        if self.unbalanced:
+            datas={}
+            for var in self.variables:
+                datas[var]=xr.open_dataset(
+                    f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc')
+            return datas
 
 
     def transpose_load_concat(self, **kwargs):
@@ -293,7 +303,7 @@ class DLTraining:
                                          beta_constraint=None, gamma_constraint=None))
 
         if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
+            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -322,7 +332,7 @@ class DLTraining:
                                          beta_constraint=None, gamma_constraint=None))
 
         if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
+            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -351,7 +361,7 @@ class DLTraining:
                                          beta_constraint=None, gamma_constraint=None))
 
         if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=0.3, data_format='channels_last'))
+            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
