@@ -27,7 +27,7 @@ class CreateEvaluationData:
     
     """
     
-    def __init__(self, climate, method, variables, directory, mask=False, season_choice=None):
+    def __init__(self, climate, method, variables, directory, mask=False, unbalanced=False, season_choice=None):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
@@ -41,6 +41,7 @@ class CreateEvaluationData:
             
         self.variables=variables
         self.directory=directory
+        self.unbalanced=unbalanced
         
         self.mask=mask
         if not self.mask:
@@ -149,8 +150,14 @@ class CreateEvaluationData:
         self.add_mask()
         for var in self.variables:
             print(f"Opening {var}...")
-            data=xr.open_mfdataset(f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
-                                   parallel=True, combine='by_coords')
+            if not self.unbalanced:
+                data=xr.open_mfdataset(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
+                    parallel=True, combine='by_coords')
+            if self.unbalanced:
+                data=xr.open_mfdataset(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
+                    parallel=True, combine='by_coords')
             if self.method=='random':
                 self.random_method(data, var)
             if self.method=='month':
@@ -182,7 +189,12 @@ class CreateEvaluationData:
                 data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y')[select_data,:,:].expand_dims('features',axis=3)),
                                           'X_test_label':(['b'], data.X_test_label[select_data])})
             print(f"Saving {num+1}...")
-            data_assemble.to_netcdf(f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
+            if not self.unbalanced:
+                data_assemble.to_netcdf(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
+            if self.unbalanced:
+                data_assemble.to_netcdf(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
         data_assemble=data_assemble.close()
         data=data.close()
         return
