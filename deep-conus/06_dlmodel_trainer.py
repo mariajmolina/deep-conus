@@ -30,6 +30,10 @@ class DLTraining:
         model_num (int): Number assignment for the model.
         mask (boolean): Whether to train using the UH derived from masked data or non-masked data. Defaults to ``False``.
         mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``.
+        retrain (boolean): Whether retraining an already trained model. Defaults to ``False``. 
+        retrain_model_num (int): If retraining an already trained model, assign a new model num for the retrained model.
         climate (str): Whether to train with the ``current`` or ``future`` climate simulations. Defaults to ``current``.
         print_sequential (boolean): Whether to print the sequetial steps occurring during training. Defaults to ``True``.
         conv_1_mapnum (int): Number of activation maps in first conv layer. Defaults to 32.
@@ -63,7 +67,8 @@ class DLTraining:
     """
     
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
-                 mask=False, mask_train=False, unbalanced=False, climate='current', print_sequential=True,
+                 mask=False, mask_train=False, unbalanced=False, validation=False, retrain=False, retrain_model_num=None,
+                 climate='current', print_sequential=True,
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
@@ -75,9 +80,11 @@ class DLTraining:
         self.dlfile_directory=dlfile_directory
         self.variables=variables
         self.model_num=model_num
-        
         self.mask_train=mask_train
         self.unbalanced=unbalanced
+        self.validation=validation
+        self.retrain=retrain
+        self.retrain_model_num=retrain_model_num
         
         if not mask_train:
             self.mask=mask
@@ -85,27 +92,21 @@ class DLTraining:
                 self.mask_str='nomask'
             if self.mask:
                 self.mask_str='mask'
-            
         if mask_train:
             self.mask=True
             self.mask_str='mask'
-        
-
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` for climate option.")
         else:
             self.climate=climate
             
         self.print_sequential=print_sequential
-            
         self.conv_1_mapnum=conv_1_mapnum
         self.conv_2_mapnum=conv_2_mapnum
         self.conv_3_mapnum=conv_3_mapnum
-        
         self.acti_1_func=acti_1_func
         self.acti_2_func=acti_2_func
         self.acti_3_func=acti_3_func
-        
         self.filter_width=filter_width
         self.learning_rate=learning_rate
         
@@ -207,17 +208,31 @@ class DLTraining:
             
         """
         if not self.unbalanced:
-            datas={}
-            for var in self.variables:
-                datas[var]=xr.open_dataset(
-                    f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
-            return datas
+            if not self.validation:
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc')
+                return datas
+            if self.validation:
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_valid.nc')
+                return datas
         if self.unbalanced:
-            datas={}
-            for var in self.variables:
-                datas[var]=xr.open_dataset(
-                    f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc')
-            return datas
+            if not self.validation:
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc')
+                return datas
+            if self.validation:
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_valid.nc')
+                return datas
 
 
     def transpose_load_concat(self, **kwargs):
@@ -383,6 +398,8 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
+        if self.spatial_drop:
+            model.add(Dropout(rate=self.spatial_drop_perc))
             
         model.add(Dense(units=self.denseshape, activation=self.output_activation))
 
@@ -417,6 +434,8 @@ class DLTraining:
         """Training of the deep convolutional neural network in sequential steps.
         
         """
+        if self.retrain:
+            raise Exception("Re-train option is turned on. Change sequence func to retrain_dl.")
         if self.print_sequential:
             print("Initiating session...")
         self.initiate_session()
@@ -440,3 +459,39 @@ class DLTraining:
         label_data=None
         
     
+    def retrain_dl(self):
+        
+        """Re-train the compiled DL model, save the trained model, and save the history and metric information from training to 
+        ``self.dl_filedirectory``.
+            
+        Args: 
+            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
+            data (numpy array): Training data with ``nans`` removed.
+            label (numpy array): Corresponding labels of data.
+            
+        """
+        if self.print_sequential:
+            print("Opening files...")
+        data=self.open_files()
+        if self.print_sequential:
+            print("Generating training data and labels...")
+        train_data, label_data=self.transpose_load_concat(**data)
+        if self.print_sequential:
+            print("Removing nans...")
+        train_data, label_data=self.omit_nans(train_data, label_data)
+        if self.print_sequential:
+            print("Open previously trained model...")
+        model=load_model(f'{self.working_directory}/model_{self.model_num}_current.h5')
+        if self.print_sequential:
+            print("Retrain previously trained model...")        
+        history=model.fit(x=train_data, 
+                          y=label_data, 
+                          validation_split=self.validation_split, 
+                          batch_size=self.batch_size, 
+                          epochs=self.epochs, 
+                          shuffle=True)
+        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.csv')
+        save_model(model, f"/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.h5")
+        data=None
+        train_data=None
+        label_data=None

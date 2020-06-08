@@ -6,6 +6,7 @@ from sklearn.metrics.cluster import contingency_matrix
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
 import multiprocessing as mp
+from hagelslag.evaluation.ProbabilityMetrics import DistributedReliability
 
 
 class EvaluateDLModel:
@@ -25,6 +26,8 @@ class EvaluateDLModel:
         eval_directory (str): Directory where evaluation files will be saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
         month_choice (int): Month for analysis. Defaults to ``None``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
@@ -48,7 +51,8 @@ class EvaluateDLModel:
         
     """
     
-    def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, mask=False, mask_train=False,
+    def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
+                 mask=False, mask_train=False, unbalanced=False, validation=False,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
                  perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
                  seed_indexer=1, outliers=False, upper_perc=99):
@@ -70,6 +74,8 @@ class EvaluateDLModel:
         self.eval_directory=eval_directory
         
         self.mask_train=mask_train
+        self.unbalanced=unbalanced
+        self.validation=validation
         
         if not mask_train:
             self.mask=mask
@@ -221,8 +227,20 @@ class EvaluateDLModel:
         the_data={}
         if self.method=='random':
             for var in self.variables:
-                the_data[var]=xr.open_dataset(
-                    f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
+                if not self.unbalanced:
+                    if not self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
+                    if self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_valid.nc')                        
+                if self.unbalanced:
+                    if not self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
+                    if self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')                        
         if self.method=='month':
             for var in self.variables:
                 var   ##TODO 
@@ -246,8 +264,21 @@ class EvaluateDLModel:
         the_data={}
         if self.method=='random':
             for var in self.variables:
-                the_data[var]=xr.open_dataset(
-                    f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
+                if not self.unbalanced:
+                    if not self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
+                    if self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_valid.nc')                        
+                if self.unbalanced:
+                    if not self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
+                    if self.validation:
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')  
+                        
         if self.method=='month':
             for var in self.variables:
                 var   ##TODO 
@@ -265,7 +296,16 @@ class EvaluateDLModel:
         """Generate QVAPOR upper percentile file for testing outliers.
             
         """
-        data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         qv1_mean=data_dist.train_mean.values[0]
         qv1_std=data_dist.train_std.values[0]
         self.add_dbz()
@@ -300,7 +340,8 @@ class EvaluateDLModel:
                 coords=
                 {'features':(['features'], self.apply_variable_dictionary()),
                 })
-            data.to_netcdf(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
+            data.to_netcdf(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
         return
     
     
@@ -309,11 +350,23 @@ class EvaluateDLModel:
         """Load and concatenate the testdata and testlabels.
         
         """
-        data1=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random1_{self.upper_perc}.nc')
-        data2=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random2_{self.upper_perc}.nc')
-        data3=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random3_{self.upper_perc}.nc')
-        data4=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random4_{self.upper_perc}.nc')
-        data5=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random5_{self.upper_perc}.nc')
+        if not self.unbalanced:
+            data1=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random1_{self.upper_perc}.nc')
+            data2=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random2_{self.upper_perc}.nc')
+            data3=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random3_{self.upper_perc}.nc')
+            data4=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random4_{self.upper_perc}.nc')
+            data5=xr.open_dataset(f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random5_{self.upper_perc}.nc')
+        if self.unbalanced:
+            data1=xr.open_dataset(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random1_{self.upper_perc}_unbalanced.nc')
+            data2=xr.open_dataset(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random2_{self.upper_perc}_unbalanced.nc')
+            data3=xr.open_dataset(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random3_{self.upper_perc}_unbalanced.nc')
+            data4=xr.open_dataset(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random4_{self.upper_perc}_unbalanced.nc')
+            data5=xr.open_dataset(
+                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random5_{self.upper_perc}_unbalanced.nc')
         testdata=xr.concat([data1.testdata,data2.testdata,data3.testdata,data4.testdata,data5.testdata],dim='b').values
         self.test_labels=xr.concat([data1.testlabels,data2.testlabels,data3.testlabels,data4.testlabels,data5.testlabels],dim='b').values
         return testdata
@@ -392,7 +445,7 @@ class EvaluateDLModel:
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
         self.model_probability_forecasts=model.predict(test_data[...,:-6])
-        self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
+        #self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
         
     
     def create_contingency_matrix(self):
@@ -404,7 +457,7 @@ class EvaluateDLModel:
         self.cont_matrix=contingency_matrix(labels_true=self.test_labels, labels_pred=self.model_binary_forecasts)
         
     
-    def threat_score(self):
+    def threat_score(self, tp, fp, fn):
 
         """Threat score (Gilbert 1884) or critical success index. The worst score is zero, while the best score is one.
         From Wilks book: "Proportion correct for the quantity being forecast after removing correct no forecasts from consideration".
@@ -412,28 +465,27 @@ class EvaluateDLModel:
         Returns:
             Threat score (float).
             
-        """    
-        return np.divide(self.cont_matrix[0][0], self.cont_matrix[0][0] + self.cont_matrix[0][1] + self.cont_matrix[1][0])
+        """
+        return np.divide(tp, tp + fp + fn)
+    
 
-
-    def proportion_correct(self):
+    def proportion_correct(self, tp, fp, fn, tn):
 
         """Returns: The proportion correct (Finley 1884).
             
         """
-        return np.divide(self.cont_matrix[0][0] + self.cont_matrix[1][1], 
-                         self.cont_matrix[0][0] + self.cont_matrix[0][1] + self.cont_matrix[1][0] + self.cont_matrix[1][1])
+        return np.divide(tp + tn, tp + fp + fn + tn)
 
 
-    def bias(self):
+    def bias(self, tp, fp, fn):
 
         """Returns: The bias ratio. Unbiased = 1, bias > 1 means overforecasting, Bias < 1 means underforecasting.
             
         """
-        return np.divide(self.cont_matrix[0][0] + self.cont_matrix[0][1], self.cont_matrix[0][0] + self.cont_matrix[1][0])
+        return np.divide(tp + fp, tp + fn)
 
 
-    def false_alarm_ratio(self):
+    def false_alarm_ratio(self, tp, fp):
 
         """False alarm ratio measures the fraction of ``positive`` forecasts that turned out to be wrong (Doswell et al. 1990).
         Best FAR is zero, the worst score is 1.
@@ -442,10 +494,10 @@ class EvaluateDLModel:
             False alarm ratio (float).
             
         """
-        return np.divide(self.cont_matrix[0][1], self.cont_matrix[0][0] + self.cont_matrix[0][1])
+        return np.divide(fp, tp + fp)
 
 
-    def hit_rate(self):
+    def hit_rate(self, tp, fn):
 
         """Also called the probability of detection (POD; Doswell et al. 1990).
         This metric measures the ratio of correct forecasts to the number of times the event occurred.
@@ -454,10 +506,10 @@ class EvaluateDLModel:
             Hit rate (float).
 
         """
-        return np.divide(self.cont_matrix[0][0], self.cont_matrix[0][0] + self.cont_matrix[1][0])
+        return np.divide(tp, tp + fn)
 
 
-    def false_alarm_rate(self):
+    def false_alarm_rate(self, fp, tn):
 
         """Also known as the probability of false detection (POFD).
         This metric is the ratio of false alarms to the total number of non-occurrences of the event.
@@ -466,7 +518,7 @@ class EvaluateDLModel:
             False alarm rate (float).
         
         """
-        return np.divide(self.cont_matrix[0][1], self.cont_matrix[0][1] + self.cont_matrix[1][1])
+        return np.divide(fp, fp + tn)
     
     
     def auc_score(self):
@@ -477,38 +529,7 @@ class EvaluateDLModel:
             AUC score (float).
         
         """
-        return roc_auc_score(self.test_labels, self.model_probability_forecasts)
-    
-    
-    def brier_score(self, observations, forecasts):
-        
-        #from David John Gagne's DeepSky
-        """Brier score: 
-        Squared error of the probability forecasts
-        Basically the same as mean squared error
-        perfect forecast = 0 (BS), BS=1 are bad forecasts
-
-        Answers the question: What is the magnitude of the probability forecast errors?
-        Measures the mean squared probability error. Murphy (1973) showed that it could be partitioned into 
-        three terms: (1) reliability, (2) resolution, and (3) uncertainty.
-        Range: 0 to 1.  Perfect score: 0. (https://www.cawcr.gov.au/projects/verification/)
-        
-        """
-        return np.nanmean((forecasts - observations) ** 2)
-
-
-    def brier_skill_score(self):
-        
-        #from David John Gagne's DeepSky
-        """Answers the question: What is the relative skill of the probabilistic forecast over that of climatology, 
-        in terms of predicting whether or not an event occurred?
-        Range: -∞ to 1, 0 indicates no skill when compared to the reference forecast. Perfect score: 1.
-        (https://www.cawcr.gov.au/projects/verification/)
-        
-        """
-        bs_climo = self.brier_score(self.test_labels, np.nanmean(self.test_labels))
-        bs = self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
-        return 1.0 - (bs / bs_climo)
+        return roc_auc_score(self.test_labels, np.where(self.model_probability_forecasts>=self.obs_threshold,1,0).reshape(-1))
 
     
     def assign_thresholds(self):
@@ -517,7 +538,6 @@ class EvaluateDLModel:
         Assigns new class attribute ``self.thresholds`` with the array of thresholds.
         
         """
-        #_, _, self.thresholds=roc_curve(self.test_labels, self.model_probability_forecasts)
         self.thresholds=np.hstack([2.0,np.flip(np.linspace(0.,1.,10000))])
     
             
@@ -527,8 +547,8 @@ class EvaluateDLModel:
         
         """
         self.assign_thresholds()
-        self.contingency_nonscalar_table=pd.DataFrame(np.zeros((self.thresholds.size, 8), dtype=int),
-                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR"])
+        self.contingency_nonscalar_table=pd.DataFrame(np.zeros((self.thresholds.size, 9), dtype=int),
+                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", "CSI"])
         for t, threshold in enumerate(self.thresholds):
             tp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
             fp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
@@ -546,18 +566,24 @@ class EvaluateDLModel:
                 far = float(fp) / (float(fp) + float(tp))
             except ZeroDivisionError:
                 far = 0.
-            self.contingency_nonscalar_table.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far]
+            try:
+                csi=self.threat_score(tp, fp, fn)
+            except ZeroDivisionError:
+                csi = 0.
+            self.contingency_nonscalar_table.iloc[t] += [tp, fp, fn, tn, threshold, pod, pofd, far, csi]
         if not self.outliers:
             if self.method=='random':
                 if not self.perm_feat_importance:
-                    self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                    self.contingency_nonscalar_table.to_csv(
+                        f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
                 if self.perm_feat_importance:
                     self.contingency_nonscalar_table.to_csv(
                         f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         if self.outliers:
             if self.method=='random':
                 if not self.perm_feat_importance:
-                    self.contingency_nonscalar_table.to_csv(f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                    self.contingency_nonscalar_table.to_csv(
+                        f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
                 if self.perm_feat_importance:
                     self.contingency_nonscalar_table.to_csv(
                         f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
@@ -569,13 +595,13 @@ class EvaluateDLModel:
         """Evaluate the DL model using a scalar threshold and a series of error metrics and save results as a csv file.
         
         """
-        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 16), dtype=int),
+        self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 14), dtype=int),
                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
-                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate", "AUC", "BSS", "BS"])
-        tp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-        fp=np.count_nonzero(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
-        fn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-        tn=np.count_nonzero(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold))) 
+                                                              "CSI", "ProportionCorrect", "Bias", "HitRate", "FalseAlarmRate", "AUC"])
+        tp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        fp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+        fn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
+        tn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold))) 
         try:
             pod = float(tp) / (float(tp) + float(fn))
         except ZeroDivisionError:
@@ -588,27 +614,26 @@ class EvaluateDLModel:
             far = float(fp) / (float(fp) + float(tp))
         except ZeroDivisionError:
             far = 0.
-        self.create_contingency_matrix()
-        csi=self.threat_score()
-        pc=self.proportion_correct()
-        bs=self.bias()
-        hr=self.hit_rate()
-        farate=self.false_alarm_rate()
+        csi=self.threat_score(tp, fp, fn)
+        pc=self.proportion_correct(tp, fp, fn, tn)
+        bs=self.bias(tp, fp, fn)
+        hr=self.hit_rate(tp, fn)
+        farate=self.false_alarm_rate(fp, tn)
         auc_score=self.auc_score()
-        bss_score=self.brier_skill_score()
-        bs_score=self.brier_score(self.test_labels, self.model_probability_forecasts.squeeze())
-        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score, bss_score, bs_score]
+        self.contingency_scalar_table.iloc[0] += [tp, fp, fn, tn, self.obs_threshold, pod, pofd, far, csi, pc, bs, hr, farate, auc_score]
         if not self.outliers:
             if self.method=='random':
                 if not self.perm_feat_importance:
-                    self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                    self.contingency_scalar_table.to_csv(
+                        f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
                 if self.perm_feat_importance:
                     self.contingency_scalar_table.to_csv(
                         f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         if self.outliers:
             if self.method=='random':
                 if not self.perm_feat_importance:
-                    self.contingency_scalar_table.to_csv(f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                    self.contingency_scalar_table.to_csv(
+                        f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
                 if self.perm_feat_importance:
                     self.contingency_scalar_table.to_csv(
                         f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
@@ -621,21 +646,21 @@ class EvaluateDLModel:
         
         """
         #true - positives
-        self.tp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
+        self.tp_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #true - positives, prediction probability exceeding 99% confidence (very correct, severe)
         self.tp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #false - positives
-        self.fp_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
+        self.fp_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #false - positives, prediction probability exceeding 99% confidence (very incorrect, severe)
-        self.fp_99_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
+        self.fp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #false - negatives
-        self.fn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
+        self.fn_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #false - negatives; prediction probability below 1% (very incorrect, nonsevere)
-        self.fn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
+        self.fn_01_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
         #true negative
-        self.tn_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
+        self.tn_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         #true negative, prediction probability below 1% (very correct, nonsevere)
-        self.tn_01_indx=np.asarray(np.where(np.logical_and((self.model_binary_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
+        self.tn_01_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
         
         
     def add_heights_to_variables(self, variable):
@@ -710,10 +735,48 @@ class EvaluateDLModel:
             })
         if not self.outliers:
             if self.method=='random':
-                data.to_netcdf(f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+                data.astype('float32').to_netcdf(
+                    f'{self.eval_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
         if self.outliers:
             if self.method=='random':
-                data.to_netcdf(f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+                data.astype('float32').to_netcdf(
+                    f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+                
+                
+    def reliability_info(self, bin_res=0.1):
+        
+        """Generate reliability data.
+        
+        Args:
+            rel_thresholds (numpy array): Thresholds to use for bins for reliability metrics.
+        
+        """
+        rel_thresholds=np.arange(0, 1.1, bin_res)
+        rel_things = pd.DataFrame(np.zeros((1, 6), dtype=int),
+                                  columns=["BS", "BSS", "reliability", "resolution", "uncertainty", "climo"])
+        rel = DistributedReliability(thresholds=rel_thresholds, obs_threshold=self.obs_threshold)
+        rel.update(self.model_probability_forecasts.reshape(-1), self.test_labels)
+        bs=rel.brier_score()
+        bss=rel.brier_skill_score()
+        reliability, resolution, uncertainty=rel.brier_score_components()
+        climo = rel.climatology()
+        rel_things.iloc[0] += [bs, bss, reliability, resolution, uncertainty, climo]
+        df_rc = rel.reliability_curve()
+        df_fq = rel.frequencies
+        if not self.outliers:
+            rel_things.to_csv(
+                f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+            df_rc.to_csv(
+                f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+            df_fq.to_csv(
+                f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+        if self.outliers:
+            rel_things.to_csv(
+                f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+            df_rc.to_csv(
+                f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+            df_fq.to_csv(
+                f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
         
         
     def sequence_pfi(self, testdata, num):
@@ -743,8 +806,11 @@ class EvaluateDLModel:
         This is not for outliers.
         
         """
+        print("Opening files...")
         data=self.open_test_files()
+        print("Assemble and concat...")
         testdata, labels=self.assemble_and_concat(**data)
+        print("Removing nans and saving...")
         self.remove_nans(testdata, labels)
         data=None
         labels=None
@@ -758,21 +824,18 @@ class EvaluateDLModel:
         """
         if self.print_sequential:
             print("Opening and preparing the test files...")
-            
-        #data=self.open_test_files()
-        #testdata, labels=self.assemble_and_concat(**data)
-        #testdata=self.remove_nans(testdata, labels)
-        #data=None
-        #labels=None
-        #test_data=data.X_test.values
-        #self.test_labels=data.X_test_label.values
-        #return test_data
         
-        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_file}.nc')
-        testdata=data.X_test.values
+        
+        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
+        testdata=data.X_test.astype('float16').values
         self.test_labels=data.X_test_label.values
         data=None
-        
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
         if not self.perm_feat_importance:
             if self.print_sequential:
                 print("Generating DL predictions...")
