@@ -18,8 +18,8 @@ class SplitAndStandardize:
         working_directory (str): The directory path to where the produced files will be saved and worked from.
         threshold1 (int): The threshold for used for the chosen classification method (e.g., 75 UH25).
         mask (boolean): Whether the threshold was applied within the storm patch mask or not. Defaults to ``False``.
-        unbalanced (boolean):  
-        validation (boolean):
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
             
     Raises:
         Exceptions: Checks whether correct values were input for climate, variable, and percent_split.
