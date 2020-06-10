@@ -7,6 +7,8 @@ from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
 import multiprocessing as mp
 from hagelslag.evaluation.ProbabilityMetrics import DistributedReliability
+from sklearn.isotonic import IsotonicRegression
+import pickle
 
 
 class EvaluateDLModel:
@@ -52,7 +54,7 @@ class EvaluateDLModel:
     """
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
-                 mask=False, mask_train=False, unbalanced=False, validation=False,
+                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
                  perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
                  seed_indexer=1, outliers=False, upper_perc=99):
@@ -76,6 +78,7 @@ class EvaluateDLModel:
         self.mask_train=mask_train
         self.unbalanced=unbalanced
         self.validation=validation
+        self.isotonic=isotonic
         
         if not mask_train:
             self.mask=mask
@@ -83,7 +86,6 @@ class EvaluateDLModel:
                 self.mask_str='nomask'
             if self.mask:
                 self.mask_str='mask'
-            
         if mask_train:
             self.mask=True
             self.mask_str='mask'
@@ -435,6 +437,17 @@ class EvaluateDLModel:
         return new_test_data
 
     
+    def isotonic_load(self):
+        
+        """Load the Isotonic model.
+        
+        """
+        pkl_filename = f'{self.model_directory}/isotonic_model{self.model_num}.pkl'
+        with open(pkl_filename, 'rb') as file:
+            pickle_model = pickle.load(file)
+        return pickle_model
+        
+    
     def load_and_predict(self, test_data):
         
         """Load the DL model and generate predictions with the input variable data.
@@ -445,7 +458,9 @@ class EvaluateDLModel:
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
         self.model_probability_forecasts=model.predict(test_data[...,:-6])
-        #self.model_binary_forecasts=np.round(self.model_probability_forecasts.reshape(len(self.model_probability_forecasts)),0)
+        if self.isotonic:
+            iso_model=self.isotonic_load()
+            self.model_probability_forecasts=iso_model.predict(self.model_probability_forecasts.reshape(-1))
         
     
     def create_contingency_matrix(self):
@@ -720,15 +735,39 @@ class EvaluateDLModel:
         
         """
         self.grab_verification_indices()
+        tp_array=test_data[self.tp_indx,:,:,:].squeeze()
+        fp_array=test_data[self.fp_indx,:,:,:].squeeze()
+        fn_array=test_data[self.fn_indx,:,:,:].squeeze()
+        tn_array=test_data[self.tn_indx,:,:,:].squeeze()
+        tp_99_array=test_data[self.tp_99_indx,:,:,:].squeeze()
+        fp_99_array=test_data[self.fp_99_indx,:,:,:].squeeze()
+        fn_01_array=test_data[self.fn_01_indx,:,:,:].squeeze()
+        tn_01_array=test_data[self.tn_01_indx,:,:,:].squeeze()
+        if len(tp_array.shape)==3:
+            tp_array=np.expand_dims(tp_array, axis=0)
+        if len(fp_array.shape)==3:
+            fp_array=np.expand_dims(fp_array, axis=0)
+        if len(fn_array.shape)==3:
+            fn_array=np.expand_dims(fn_array, axis=0)
+        if len(tn_array.shape)==3:
+            tn_array=np.expand_dims(tn_array, axis=0)
+        if len(tp_99_array.shape)==3:
+            tp_99_array=np.expand_dims(tp_99_array, axis=0)
+        if len(fp_99_array.shape)==3:
+            fp_99_array=np.expand_dims(fp_99_array, axis=0)
+        if len(fn_01_array.shape)==3:
+            fn_01_array=np.expand_dims(fn_01_array, axis=0)
+        if len(tn_01_array.shape)==3:
+            tn_01_array=np.expand_dims(tn_01_array, axis=0)
         data=xr.Dataset({
-            'tp':(['a','x','y','features'], test_data[self.tp_indx,:,:,:].squeeze()),
-            'tp_99':(['b','x','y','features'], test_data[self.tp_99_indx,:,:,:].squeeze()),
-            'fp':(['c','x','y','features'], test_data[self.fp_indx,:,:,:].squeeze()),
-            'fp_99':(['d','x','y','features'], test_data[self.fp_99_indx,:,:,:].squeeze()),
-            'fn':(['e','x','y','features'], test_data[self.fn_indx,:,:,:].squeeze()),
-            'fn_01':(['f','x','y','features'], test_data[self.fn_01_indx,:,:,:].squeeze()),
-            'tn':(['g','x','y','features'], test_data[self.tn_indx,:,:,:].squeeze()),
-            'tn_01':(['h','x','y','features'], test_data[self.tn_01_indx,:,:,:].squeeze()),
+            'tp':(['a','x','y','features'], tp_array),
+            'tp_99':(['b','x','y','features'], tp_99_array),
+            'fp':(['c','x','y','features'], fp_array),
+            'fp_99':(['d','x','y','features'], fp_99_array),
+            'fn':(['e','x','y','features'], fn_array),
+            'fn_01':(['f','x','y','features'], fn_01_array),
+            'tn':(['g','x','y','features'], tn_array),
+            'tn_01':(['h','x','y','features'], tn_01_array),
             },
             coords=
             {'features':(['features'], self.apply_variable_dictionary()),
