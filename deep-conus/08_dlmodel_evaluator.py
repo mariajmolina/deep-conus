@@ -30,6 +30,8 @@ class EvaluateDLModel:
         mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
         unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
         validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
+        isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
+        bin_res (float): Bin resolution for the reliability curve. Defaults to ``0.05``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
         month_choice (int): Month for analysis. Defaults to ``None``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
@@ -41,7 +43,6 @@ class EvaluateDLModel:
         pfi_variable (int): The variable to permute for permutation feature importance. Defaults to ``None``.
         pfi_iterations (int): The number of sets to run to compute confidence intervals for subsequent significance testing of permutation
                               feature importance. Defaults to ``None``.
-        num_cpus (int): Number of CPUs for parallel computing of PFI. Defaults to ``None``. No parallel computing if ``None``.
         seed_indexer(int): Feature to help resume runs from mid-point locations of uncertainty quantification. Defaults to ``1``. 
                            Recommended usage at 1,000 intervals to prevent excessive multiprocessing runtime.
         
@@ -54,9 +55,9 @@ class EvaluateDLModel:
     """
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
-                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
+                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False, bin_res=0.05,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
-                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=None, num_cpus=None, 
+                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
                  seed_indexer=1, outliers=False, upper_perc=99):
         
         if climate!='current' and climate!='future':
@@ -79,6 +80,7 @@ class EvaluateDLModel:
         self.unbalanced=unbalanced
         self.validation=validation
         self.isotonic=isotonic
+        self.bin_res=bin_res
         
         if not mask_train:
             self.mask=mask
@@ -99,7 +101,6 @@ class EvaluateDLModel:
         self.perm_feat_importance=perm_feat_importance
         self.pfi_variable=pfi_variable
         self.pfi_iterations=pfi_iterations
-        self.num_cpus=num_cpus
         self.seed_indexer=seed_indexer
         self.outliers=outliers
         self.upper_perc=upper_perc
@@ -782,7 +783,7 @@ class EvaluateDLModel:
                     f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
                 
                 
-    def reliability_info(self, bin_res=0.1):
+    def reliability_info(self, num=None):
         
         """Generate reliability data.
         
@@ -790,7 +791,7 @@ class EvaluateDLModel:
             rel_thresholds (numpy array): Thresholds to use for bins for reliability metrics.
         
         """
-        rel_thresholds=np.arange(0, 1.1, bin_res)
+        rel_thresholds=np.arange(0, 1.1, self.bin_res)
         rel_things = pd.DataFrame(np.zeros((1, 6), dtype=int),
                                   columns=["BS", "BSS", "reliability", "resolution", "uncertainty", "climo"])
         rel = DistributedReliability(thresholds=rel_thresholds, obs_threshold=self.obs_threshold)
@@ -803,20 +804,36 @@ class EvaluateDLModel:
         df_rc = rel.reliability_curve()
         df_fq = rel.frequencies
         if not self.outliers:
-            rel_things.to_csv(
-                f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
-            df_rc.to_csv(
-                f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
-            df_fq.to_csv(
-                f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
+            if not self.perm_feat_importance:
+                rel_things.to_csv(
+                    f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                df_rc.to_csv(
+                    f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                df_fq.to_csv(
+                    f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+            if self.perm_feat_importance:
+                rel_things.to_csv(
+                    f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                df_rc.to_csv(
+                    f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                df_fq.to_csv(
+                    f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         if self.outliers:
-            rel_things.to_csv(
-                f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
-            df_rc.to_csv(
-                f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
-            df_fq.to_csv(
-                f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{bin_res}.csv')
-        
+            if not self.perm_feat_importance:
+                rel_things.to_csv(
+                    f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                df_rc.to_csv(
+                    f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                df_fq.to_csv(
+                    f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+            if self.perm_feat_importance:
+                rel_things.to_csv(
+                    f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                df_rc.to_csv(
+                    f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                df_fq.to_csv(
+                    f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                
         
     def sequence_pfi(self, testdata, num):
         
@@ -835,6 +852,7 @@ class EvaluateDLModel:
             print("Generating probabilistic and nonprobabilistic skill scores...")
         self.nonscalar_metrics_and_save(num)
         self.scalar_metrics_and_save(num)
+        self.reliability_info(num)
         if self.print_sequential:
             print("Evaluation is complete.")
             
@@ -863,8 +881,6 @@ class EvaluateDLModel:
         """
         if self.print_sequential:
             print("Opening and preparing the test files...")
-        
-        
         data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
         testdata=data.X_test.astype('float16').values
         self.test_labels=data.X_test_label.values
@@ -892,54 +908,9 @@ class EvaluateDLModel:
             if not self.pfi_iterations:
                 self.sequence_pfi(testdata, num=0)
             if self.pfi_iterations:
-                if not self.num_cpus:
-                    for i in range(self.pfi_iterations):
-                        self.sequence_pfi(testdata, num=i+self.seed_indexer)
-                if self.num_cpus:
-                    self.permutation_feat_importance()
+                for i in range(self.pfi_iterations):
+                    self.sequence_pfi(testdata, num=i+self.seed_indexer)
         testdata=None
-
-
-    def new_sequencing(self, num):
-        
-        """This is the function that multiprocessing will call to avoid overflow errors.
-        This is called by ``permutation_feat_importance``.
-        
-        """
-        if self.print_sequential:
-            print("Opening and preparing the test files...")
-        data=self.open_test_files()
-        testdata, labels=self.assemble_and_concat(**data)
-        testdata=self.remove_nans(testdata, labels)
-        data=None
-        labels=None
-        print(f"Shuffling variable num {str(num)}...")
-        test_data=self.variable_shuffler(testdata, num)
-        if self.print_sequential:
-            print("Generating DL predictions...")
-        self.load_and_predict(test_data)
-        if self.print_sequential:
-            print("Generating probabilistic and nonprobabilistic skill scores...")
-        self.nonscalar_metrics_and_save(num)
-        self.scalar_metrics_and_save(num)
-        if self.print_sequential:
-            print("Evaluation is complete.")
-        
-
-    def permutation_feat_importance(self):
-        
-        """Function to generate permutation feature importance uncertainty quantification.
-        
-        Todo:
-        * multiprocess generates errors in batch job submission on Cheyenne. Fix at some point.
-        
-        """        
-        pool=mp.Pool(self.num_cpus)
-        for i in range(self.pfi_iterations):
-            pool.apply_async(self.new_sequencing, args=([i+self.seed_indexer]))
-        pool.close()
-        pool.join()
-        print("completed")
     
     
     def sequence_outlier_evaluation(self):
