@@ -566,10 +566,14 @@ class EvaluateDLModel:
         self.contingency_nonscalar_table=pd.DataFrame(np.zeros((self.thresholds.size, 9), dtype=int),
                                                       columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", "CSI"])
         for t, threshold in enumerate(self.thresholds):
-            tp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-            fp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
-            fn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))
-            tn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), (self.test_labels < self.obs_threshold)))
+            tp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), 
+                                               (self.test_labels >= self.obs_threshold)))
+            fp=np.count_nonzero(np.logical_and((self.model_probability_forecasts >= threshold).reshape(-1), 
+                                               (self.test_labels < self.obs_threshold)))
+            fn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), 
+                                               (self.test_labels >= self.obs_threshold)))
+            tn=np.count_nonzero(np.logical_and((self.model_probability_forecasts < threshold).reshape(-1), 
+                                               (self.test_labels < self.obs_threshold)))
             try:
                 pod = float(tp) / (float(tp) + float(fn))
             except ZeroDivisionError:
@@ -871,6 +875,32 @@ class EvaluateDLModel:
         self.remove_nans(testdata, labels)
         data=None
         labels=None
+        
+        
+    def intro_sequence_evaluation(self):
+        if self.print_sequential:
+            print("Opening and preparing the test files...")
+        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
+        testdata=data.X_test.astype('float16').values
+        testlabels=data.X_test_label.values
+        data=None
+        return testdata, testlabels
+        
+        
+    def solo_pfi(self, testdata, testlabels):
+        self.test_labels=testlabels
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        if self.perm_feat_importance:
+            if not self.pfi_iterations:
+                self.sequence_pfi(testdata, num=0)
+            if self.pfi_iterations:
+                for i in range(self.pfi_iterations):
+                    self.sequence_pfi(testdata, num=i+self.seed_indexer)
         
         
     def sequence_the_evaluation(self):
