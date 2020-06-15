@@ -43,6 +43,8 @@ class EvaluateDLModel:
         pfi_variable (int): The variable to permute for permutation feature importance. Defaults to ``None``.
         pfi_iterations (int): The number of sets to run to compute confidence intervals for subsequent significance testing of permutation
                               feature importance. Defaults to ``None``.
+        bootstrap (boolean): Whether to compute a bootstrap of metrics. Defaults to ``False``.
+        boot_iterations (int): Number of bootstrap samples. Defaults to ``100,000``.
         seed_indexer(int): Feature to help resume runs from mid-point locations of uncertainty quantification. Defaults to ``1``. 
                            Recommended usage at 1,000 intervals to prevent excessive multiprocessing runtime.
         
@@ -56,9 +58,9 @@ class EvaluateDLModel:
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False, bin_res=0.05,
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, print_sequential=True,
-                 perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
-                 seed_indexer=1, outliers=False, upper_perc=99):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, 
+                 print_sequential=True, perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
+                 bootstrap=False, boot_iterations=1000, seed_indexer=1, outliers=False, upper_perc=99):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -101,6 +103,8 @@ class EvaluateDLModel:
         self.perm_feat_importance=perm_feat_importance
         self.pfi_variable=pfi_variable
         self.pfi_iterations=pfi_iterations
+        self.bootstrap=bootstrap
+        self.boot_iterations=boot_iterations
         self.seed_indexer=seed_indexer
         self.outliers=outliers
         self.upper_perc=upper_perc
@@ -435,6 +439,21 @@ class EvaluateDLModel:
         np.random.seed(num)
         new_test_data=np.copy(test_data)
         new_test_data[:,:,:,self.pfi_variable]=test_data[np.random.permutation(test_data.shape[0]),:,:,self.pfi_variable]
+        return new_test_data
+    
+    
+    def bootstrap_shuffler(self, test_data, num):
+        
+        """Bootstrap the data selected for determining confidence intervals.
+        
+        Args:
+            num (int): Integer input into random seed setter.
+        
+        """
+        np.random.seed(num)
+        boot_help=np.arange(0,100000,1)
+        boot_indx=np.array([np.random.choice(boot_help) for i in range(100000)])
+        new_test_data=test_data[boot_indx,:,:,:]
         return new_test_data
 
     
@@ -807,36 +826,52 @@ class EvaluateDLModel:
         rel_things.iloc[0] += [bs, bss, reliability, resolution, uncertainty, climo]
         df_rc = rel.reliability_curve()
         df_fq = rel.frequencies
-        if not self.outliers:
-            if not self.perm_feat_importance:
+        if self.bootstrap:
+            if not self.outliers:
                 rel_things.to_csv(
-                    f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
                 df_rc.to_csv(
-                    f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
                 df_fq.to_csv(
-                    f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
-            if self.perm_feat_importance:
+                    f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
+            if self.outliers:
                 rel_things.to_csv(
-                    f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
                 df_rc.to_csv(
-                    f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
                 df_fq.to_csv(
-                    f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
-        if self.outliers:
-            if not self.perm_feat_importance:
-                rel_things.to_csv(
-                    f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
-                df_rc.to_csv(
-                    f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
-                df_fq.to_csv(
-                    f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
-            if self.perm_feat_importance:
-                rel_things.to_csv(
-                    f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
-                df_rc.to_csv(
-                    f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
-                df_fq.to_csv(
-                    f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_boot{str(num)}.csv')
+        if not self.bootstrap:
+            if not self.outliers:
+                if not self.perm_feat_importance:
+                    rel_things.to_csv(
+                        f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    df_rc.to_csv(
+                        f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    df_fq.to_csv(
+                        f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                if self.perm_feat_importance:
+                    rel_things.to_csv(
+                        f'{self.eval_directory}/bss_scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    df_rc.to_csv(
+                        f'{self.eval_directory}/bss_curve_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    df_fq.to_csv(
+                        f'{self.eval_directory}/bss_freqs_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+            if self.outliers:
+                if not self.perm_feat_importance:
+                    rel_things.to_csv(
+                        f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    df_rc.to_csv(
+                        f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                    df_fq.to_csv(
+                        f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}.csv')
+                if self.perm_feat_importance:
+                    rel_things.to_csv(
+                        f'{self.eval_directory}/bss_scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    df_rc.to_csv(
+                        f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
+                    df_fq.to_csv(
+                        f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
                 
         
     def sequence_pfi(self, testdata, num):
@@ -849,6 +884,28 @@ class EvaluateDLModel:
         """
         print(f"Shuffling seed num {str(num)}...")
         test_data=self.variable_shuffler(testdata, num)
+        if self.print_sequential:
+            print("Generating DL predictions...")
+        self.load_and_predict(test_data)
+        if self.print_sequential:
+            print("Generating probabilistic and nonprobabilistic skill scores...")
+        self.nonscalar_metrics_and_save(num)
+        self.scalar_metrics_and_save(num)
+        self.reliability_info(num)
+        if self.print_sequential:
+            print("Evaluation is complete.")
+            
+            
+    def sequence_bootstrap(self, testdata, num):
+        
+        """The sequence of functions to call for permutation feature importance.
+        
+        Args:
+            num (int): The iteration seed for shuffling the variable.
+        
+        """
+        print(f"Shuffling seed num {str(num)}...")
+        test_data=self.bootstrap_shuffler(testdata, num)
         if self.print_sequential:
             print("Generating DL predictions...")
         self.load_and_predict(test_data)
@@ -901,6 +958,19 @@ class EvaluateDLModel:
             if self.pfi_iterations:
                 for i in range(self.pfi_iterations):
                     self.sequence_pfi(testdata, num=i+self.seed_indexer)
+                    
+                    
+    def solo_bootstrap(self, testdata, testlabels):
+        self.test_labels=testlabels
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        if self.bootstrap:
+            for i in range(self.boot_iterations):
+                self.sequence_bootstrap(testdata, num=i+self.seed_indexer)
         
         
     def sequence_the_evaluation(self):
