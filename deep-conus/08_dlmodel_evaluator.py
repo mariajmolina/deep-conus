@@ -375,8 +375,8 @@ class EvaluateDLModel:
             data5=xr.open_dataset(
                 f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random5_{self.upper_perc}_unbalanced.nc')
         testdata=xr.concat([data1.testdata,data2.testdata,data3.testdata,data4.testdata,data5.testdata],dim='b').values
-        self.test_labels=xr.concat([data1.testlabels,data2.testlabels,data3.testlabels,data4.testlabels,data5.testlabels],dim='b').values
-        return testdata
+        labels=xr.concat([data1.testlabels,data2.testlabels,data3.testlabels,data4.testlabels,data5.testlabels],dim='b').values
+        return testdata, labels
     
 
     def assemble_and_concat(self, **kwargs):
@@ -1021,7 +1021,8 @@ class EvaluateDLModel:
         """
         if self.print_sequential:
             print("Opening and preparing the test files...")
-        testdata=self.load_qv_files()
+        testdata, labels=self.load_qv_files()
+        self.test_labels=labels
         self.add_dbz()
         self.add_uh25()
         self.add_uh03()
