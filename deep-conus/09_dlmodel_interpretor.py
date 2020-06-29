@@ -52,7 +52,8 @@ class InterpretDLModel:
         
     """
 
-    def __init__(self, climate, method, variable, dist_directory, model_directory, model_num, comp_directory, mask=False, 
+    def __init__(self, climate, method, variable, dist_directory, model_directory, model_num, comp_directory, 
+                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None):
         
         if climate!='current' and climate!='future':
@@ -77,6 +78,11 @@ class InterpretDLModel:
         if self.mask:
             self.mask_str='mask'
     
+        self.mask_train=mask_train
+        self.unbalanced=unbalanced
+        self.validation=validation
+        self.isotonic=isotonic
+        
         self.random_choice=random_choice
         self.month_choice=month_choice 
         self.season_choice=season_choice 
@@ -132,7 +138,20 @@ class InterpretDLModel:
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                 f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+            f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")       
+            if self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.variable_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.variable_std=data.train_std.values[self.convert_string_height()[0][0]]
         
@@ -142,7 +161,17 @@ class InterpretDLModel:
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.eu_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.eu_std=data.train_std.values[self.convert_string_height()[0][0]]
         
@@ -152,7 +181,17 @@ class InterpretDLModel:
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
     
@@ -162,7 +201,17 @@ class InterpretDLModel:
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.dbz_mean=data['train_mean'].values[0]
         self.dbz_std=data['train_std'].values[0]
     
@@ -277,16 +326,12 @@ class InterpretDLModel:
         
         for conv_filter, ax in enumerate(axes.ravel()):
             print(conv_filter)
-            
-            #out_diff=K.abs(dl_model.layers[-5].output[0, 2, 2, conv_filter] - 1)  
-            out_diff=K.abs(dl_model.layers[-3].output[0, conv_filter] - 1)     #dense layer that was added
-            
+            out_diff=K.abs(dl_model.layers[-4].output[0, conv_filter] - 1)     #dense layer that was added
             grad=K.gradients(out_diff, [dl_model.input])[0]
             grad/=K.maximum(K.std(grad), K.epsilon())
             iterate=K.function([dl_model.input, K.learning_phase()], [out_diff, grad])
             input_img_data_neuron_grad=np.zeros((1, 32, 32, 20))
-            
-            input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-2])    #change this to -3 once UH03 is resolved!!!!
+            input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-6])
             out_loss, out_grad=iterate([input_img_data_neuron, 1])
 
             #DBZ
