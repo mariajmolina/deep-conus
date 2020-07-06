@@ -194,6 +194,46 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
+        
+        
+    def extract_uh03_mean_and_std(self):
+        
+        """Open the file containing mean and std information for the variable.
+        
+        """
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+        self.uh03_mean=data['train_mean'].values[0]
+        self.uh03_std=data['train_std'].values[0]
+        
+        
+    def extract_uh25_mean_and_std(self):
+        
+        """Open the file containing mean and std information for the variable.
+        
+        """
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+        self.uh25_mean=data['train_mean'].values[0]
+        self.uh25_std=data['train_std'].values[0]
     
     
     def extract_dbz_mean_and_std(self):
@@ -256,6 +296,28 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         return np.where(data.coords['features'].values=='DBZ')[0][0]
     
     
+    def extract_uh03_index(self, data):
+    
+        """Find the ``UH03`` index from the respective test data set.
+        
+        Args:
+            data: Dataset opened with ``extract_variable_and_dbz()``.
+        
+        """
+        return np.where(data.coords['features'].values=='UH03')[0][0]
+    
+    
+    def extract_uh25_index(self, data):
+    
+        """Find the ``UH25`` index from the respective test data set.
+        
+        Args:
+            data: Dataset opened with ``extract_variable_and_dbz()``.
+        
+        """
+        return np.where(data.coords['features'].values=='UH25')[0][0]
+    
+    
     def extract_EV_index(self, data):
     
         """Find the ``EV`` (v-wind) index from the respective test data set for the corresponding variable height.
@@ -300,6 +362,47 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                                 cmap=cmap, levels=levels)
     
     
+    def preview_uh25(self, composite_group, input_index, test_data):
+        
+        """Preview the testing data ``DBZ`` values to help choose the example for ``saliency_preview``.
+        
+        Args:
+            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
+                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
+                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
+                                   true negative < 1% probability ``tn_01``.
+            input_index (int): The example's index to preview.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
+            train_mean (float): The mean of the chosen variable to reverse standardization.
+            train_std (float): The standard deviation of the chosen variable to reverse standardization.
+        
+        """
+        cmap = plt.cm.get_cmap("Reds")
+        return xr.plot.pcolormesh(
+            test_data[composite_group][input_index, :, :, test.extract_uh25_index(testdata)] * test.uh25_std + test.uh25_mean, 
+                                cmap=cmap, vmin=-75, vmax=75)
+    
+    
+    def grab_dbz(self, composite_group, input_index, test_data):
+        
+        """Grab the testing data ``DBZ`` values to help choose the example for ``saliency_preview``.
+        
+        Args:
+            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
+                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
+                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
+                                   true negative < 1% probability ``tn_01``.
+            input_index (int): The example's index to preview.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
+            train_mean (float): The mean of the chosen variable to reverse standardization.
+            train_std (float): The standard deviation of the chosen variable to reverse standardization.
+        
+        """
+        return test_data[composite_group][input_index, :, :, test.extract_dbz_index(testdata)] * test.dbz_std + test.dbz_mean
+    
+    
     def preview_saliency(self, composite_group, input_index, dl_model, test_data):
         
         """Preview the deep learning model input using saliency maps.
@@ -340,15 +443,8 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             ax.contourf(test_data[composite_group][input_index, :, :, self.extract_dbz_index(testdata)] * self.dbz_std + self.dbz_mean, 
                         cmap=cmap_dbz, levels=levels, alpha=0.2)
 
-            #chosen input variable
             ax.contour(gaussian_filter(-out_grad[0, :, :, self.extract_variable_index(testdata)], 1), 
                        [-3, -2, -1, 1, 2, 3], vmin=-3, vmax=3, cmap="seismic", linewidths=3.0)
-
-            #doing v and u?
-            #EV_var=
-            #EU_var=
-            #ax.quiver(input_img_data_neuron[0, :, :, -2] * train_std + train_mean, input_img_data_neuron[0, :, :, -1] * train_std + train_mean, scale=100)
-
             ax.set_xticks([])
             ax.set_yticks([])
             ax.xaxis.set_ticklabels([])
@@ -358,7 +454,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         plt.show()
     
     
-    def save_saliency_maps(self, composite_group, indices):
+    def save_saliency_maps(self, composite_group, input_index, dl_model, test_data):
         
         """Save the features using chosen indices to generate final images using the next module.
         
@@ -370,7 +466,70 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             indices (int): Numpy array of chosen indices.
         
         """
-        #.to_netcdf(f'{}{}{}_{composite_group}.nc')
+        testdata=test_data[composite_group]
+        for_contours={}
+        for conv_filter in range(0,32):
+            out_diff=K.abs(dl_model.layers[-4].output[0, conv_filter] - 1)     #dense layer that was added
+            grad=K.gradients(out_diff, [dl_model.input])[0]
+            grad/=K.maximum(K.std(grad), K.epsilon())
+            iterate=K.function([dl_model.input, K.learning_phase()], [out_diff, grad])
+            input_img_data_neuron_grad=np.zeros((1, 32, 32, 20))
+            input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-6])
+            out_loss, out_grad=iterate([input_img_data_neuron, 1])        
+            for_contours[conv_filter]=gaussian_filter(-out_grad[0, :, :, self.extract_variable_index(testdata)], 1)
+        array=[p[1] for p in for_contours.items()]
+        thecontours=np.asarray(array)
+        thedbz=test_data[composite_group][input_index, :, :, self.extract_dbz_index(testdata)] * self.dbz_std + self.dbz_mean
+        theeu=test_data[composite_group][input_index, :, :, self.extract_EU_index(testdata)] * self.eu_std + self.eu_mean
+        theev=test_data[composite_group][input_index, :, :, self.extract_EV_index(testdata)] * self.ev_std + self.ev_mean
+        theuh25=test_data[composite_group][input_index, :, :, self.extract_uh25_index(testdata)] * self.uh25_std + self.uh25_mean
+        theuh03=test_data[composite_group][input_index, :, :, self.extract_uh03_index(testdata)] * self.uh03_std + self.uh03_mean
+        data=xr.Dataset({
+            'saliency_maps':(['a','x','y'], thecontours),
+            'dbz':(['x','y'], thedbz),
+            'eu':(['x','y'], theeu),
+            'ev':(['x','y'], theev),
+            'uh25':(['x','y'], theuh25),
+            'uh03':(['x','y'], theuh03),
+            })
+        data.to_netcdf(
+            f"{self.comp_directory}/saliency_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{composite_group}_{str(input_index)}_{self.variable}.nc")
         return
         
         
+    def auto_saliency(self, data):
+        
+        """Preview the deep learning model input using saliency maps.
+        
+        Args:
+            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
+                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
+                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
+                                   true negative < 1% probability ``tn_01``.
+            input_index (int): The example's index to to preview.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
+            train_mean (float): The mean of the chosen variable to reverse standardization.
+            train_std (float): The standard deviation of the chosen variable to reverse standardization.
+            vmin (int): Minimum value for ``pcolormesh`` plot.
+            vmax (int): Maximum value for ``pcolormesh`` plot.
+            cmap (str): Matplotlib colorbar name for visualization.
+        
+        """
+        sm_data=data.saliency_maps
+        fig, axes=plt.subplots(4, 8, figsize=(16, 8), sharex=True, sharey=True)
+        plt.subplots_adjust(0.02, 0.02, 0.96, 0.94, wspace=0,hspace=0)
+        for conv_filter, ax in enumerate(axes.ravel()):
+            levels=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80]
+            cmap_dbz = colortables.get_colortable('NWSReflectivity')
+            ax.contourf(data.dbz,
+                        cmap=cmap_dbz, levels=levels, alpha=0.2)
+            ax.contour(sm_data[conv_filter, :, :],
+                       [-3, -2, -1, 1, 2, 3], vmin=-3, vmax=3, cmap="seismic", linewidths=3.0)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.xaxis.set_ticklabels([])
+            ax.yaxis.set_ticklabels([])
+            ax.text(16, 16, conv_filter, fontsize=14)
+        plt.suptitle("Final Convolution Filter Saliency Maps", fontsize=14, y=0.98)
+        plt.show()
