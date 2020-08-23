@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 
 class VariableTable:
@@ -30,7 +31,8 @@ class VariableTable:
     """
     
     def __init__(self, climate, method, variables, var_directory, mask=False, 
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None,
+                 boot_num=1000, boot_min=2.5, boot_max=97.5):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -55,6 +57,9 @@ class VariableTable:
         self.month_choice=month_choice 
         self.season_choice=season_choice 
         self.year_choice=year_choice
+        self.boot_num = boot_num
+        self.boot_min = boot_min
+        self.boot_max = boot_max
         
     
     def month_translate(self):
@@ -302,19 +307,240 @@ class VariableTable:
         print(np.nanmean(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,19]))*
                     datavars['PRESS'].train_std[3].values+datavars['PRESS'].train_mean[3].values)
         print('DBZ')
-        print(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,20]))*
+        print(np.nanmean(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,20]), axis=1), axis=1).data)*
                     datavars['DBZ'].train_std[0].values+datavars['DBZ'].train_mean[0].values)
         print('UH25')
-        print(np.nanmean(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,21]))*
+        print(np.nanmean(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,21]), axis=1), axis=1).data)*
                     datavars['UH25'].train_std[0].values+datavars['UH25'].train_mean[0].values)
         print('UH03')
-        print(np.nanmean(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,22]))*
+        print(np.nanmean(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,22]), axis=1), axis=1).data)*
                     datavars['UH03'].train_std[0].values+datavars['UH03'].train_mean[0].values)
         print('WMAX')
-        print(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,23]))*
+        print(np.nanmean(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,23]), axis=1), axis=1).data)*
                     datavars['WMAX'].train_std[0].values+datavars['WMAX'].train_mean[0].values)
         print('CTT')
-        print(np.nanmin(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,24]))*
+        print(np.nanmean(np.nanmin(np.nanmin(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,24]), axis=1), axis=1).data)*
+                    datavars['CTT'].train_std[0].values+datavars['CTT'].train_mean[0].values)
+        
+        
+    def table_output_quartiles(self, testdata, datavars):
+        
+        """Output paper's table 2 content, which is the variable means of the storm objects (with masks applied).
+        
+        """
+        print('TK')
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,0]), q=[25.,75.])*
+                    datavars['TK'].train_std[0].values+datavars['TK'].train_mean[0].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,1]), q=[25.,75.])*
+                    datavars['TK'].train_std[1].values+datavars['TK'].train_mean[1].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,2]), q=[25.,75.])*
+                    datavars['TK'].train_std[2].values+datavars['TK'].train_mean[2].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,3]), q=[25.,75.])*
+                    datavars['TK'].train_std[3].values+datavars['TK'].train_mean[3].values)
+        print('EV')
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,4]), q=[25.,75.])*
+                    datavars['EV'].train_std[0].values+datavars['EV'].train_mean[0].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,5]), q=[25.,75.])*
+                    datavars['EV'].train_std[1].values+datavars['EV'].train_mean[1].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,6]), q=[25.,75.])*
+                    datavars['EV'].train_std[2].values+datavars['EV'].train_mean[2].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,7]), q=[25.,75.])*
+                    datavars['EV'].train_std[3].values+datavars['EV'].train_mean[3].values)
+        print('EU')
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,8]), q=[25.,75.])*
+                    datavars['EU'].train_std[0].values+datavars['EU'].train_mean[0].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,9]), q=[25.,75.])*
+                    datavars['EU'].train_std[1].values+datavars['EU'].train_mean[1].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,10]), q=[25.,75.])*
+                    datavars['EU'].train_std[2].values+datavars['EU'].train_mean[2].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,11]), q=[25.,75.])*
+                    datavars['EU'].train_std[3].values+datavars['EU'].train_mean[3].values)
+        print('QVAPOR')
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,12]), q=[25.,75.])*
+                    datavars['QVAPOR'].train_std[0].values+datavars['QVAPOR'].train_mean[0].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,13]), q=[25.,75.])*
+                    datavars['QVAPOR'].train_std[1].values+datavars['QVAPOR'].train_mean[1].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,14]), q=[25.,75.])*
+                    datavars['QVAPOR'].train_std[2].values+datavars['QVAPOR'].train_mean[2].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,15]), q=[25.,75.])*
+                    datavars['QVAPOR'].train_std[3].values+datavars['QVAPOR'].train_mean[3].values)
+        print('PRESS')
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,16]), q=[25.,75.])*
+                    datavars['PRESS'].train_std[0].values+datavars['PRESS'].train_mean[0].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,17]), q=[25.,75.])*
+                    datavars['PRESS'].train_std[1].values+datavars['PRESS'].train_mean[1].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,18]), q=[25.,75.])*
+                    datavars['PRESS'].train_std[2].values+datavars['PRESS'].train_mean[2].values)
+        print(np.nanpercentile(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,19]), q=[25.,75.])*
+                    datavars['PRESS'].train_std[3].values+datavars['PRESS'].train_mean[3].values)
+        print('DBZ')
+        print(np.nanpercentile(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,20]), axis=1), 
+                                         axis=1).data, q=[25.,75.])*
+                    datavars['DBZ'].train_std[0].values+datavars['DBZ'].train_mean[0].values)
+        print('UH25')
+        print(np.nanpercentile(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,21]), axis=1), 
+                                         axis=1).data, q=[25.,75.])*
+                    datavars['UH25'].train_std[0].values+datavars['UH25'].train_mean[0].values)
+        print('UH03')
+        print(np.nanpercentile(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,22]), axis=1), 
+                                         axis=1).data, q=[25.,75.])*
+                    datavars['UH03'].train_std[0].values+datavars['UH03'].train_mean[0].values)
+        print('WMAX')
+        print(np.nanpercentile(np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,23]), axis=1), 
+                                         axis=1).data, q=[25.,75.])*
+                    datavars['WMAX'].train_std[0].values+datavars['WMAX'].train_mean[0].values)
+        print('CTT')
+        print(np.nanpercentile(np.nanmin(np.nanmin(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,24]), axis=1), 
+                                         axis=1).data, q=[25.,75.])*
+                    datavars['CTT'].train_std[0].values+datavars['CTT'].train_mean[0].values)
+        
+        
+    def table_output_median(self, testdata, datavars):
+        
+        """Output paper's table 2 content, which is the variable means of the storm objects (with masks applied).
+        
+        """
+        print('TK')
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,0]).data)*
+                    datavars['TK'].train_std[0].values+datavars['TK'].train_mean[0].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,1]).data)*
+                    datavars['TK'].train_std[1].values+datavars['TK'].train_mean[1].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,2]).data)*
+                    datavars['TK'].train_std[2].values+datavars['TK'].train_mean[2].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,3]).data)*
+                    datavars['TK'].train_std[3].values+datavars['TK'].train_mean[3].values)
+        print('EV')
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,4]).data)*
+                    datavars['EV'].train_std[0].values+datavars['EV'].train_mean[0].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,5]).data)*
+                    datavars['EV'].train_std[1].values+datavars['EV'].train_mean[1].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,6]).data)*
+                    datavars['EV'].train_std[2].values+datavars['EV'].train_mean[2].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,7]).data)*
+                    datavars['EV'].train_std[3].values+datavars['EV'].train_mean[3].values)
+        print('EU')
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,8]).data)*
+                    datavars['EU'].train_std[0].values+datavars['EU'].train_mean[0].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,9]).data)*
+                    datavars['EU'].train_std[1].values+datavars['EU'].train_mean[1].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,10]).data)*
+                    datavars['EU'].train_std[2].values+datavars['EU'].train_mean[2].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,11]).data)*
+                    datavars['EU'].train_std[3].values+datavars['EU'].train_mean[3].values)
+        print('QVAPOR')
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,12]).data)*
+                    datavars['QVAPOR'].train_std[0].values+datavars['QVAPOR'].train_mean[0].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,13]).data)*
+                    datavars['QVAPOR'].train_std[1].values+datavars['QVAPOR'].train_mean[1].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,14]).data)*
+                    datavars['QVAPOR'].train_std[2].values+datavars['QVAPOR'].train_mean[2].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,15]).data)*
+                    datavars['QVAPOR'].train_std[3].values+datavars['QVAPOR'].train_mean[3].values)
+        print('PRESS')
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,16]).data)*
+                    datavars['PRESS'].train_std[0].values+datavars['PRESS'].train_mean[0].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,17]).data)*
+                    datavars['PRESS'].train_std[1].values+datavars['PRESS'].train_mean[1].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,18]).data)*
+                    datavars['PRESS'].train_std[2].values+datavars['PRESS'].train_mean[2].values)
+        print(np.nanmedian(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,19]).data)*
+                    datavars['PRESS'].train_std[3].values+datavars['PRESS'].train_mean[3].values)
+        print('DBZ')
+        print(np.nanmedian(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,20]), axis=1), axis=1).data)*
+                    datavars['DBZ'].train_std[0].values+datavars['DBZ'].train_mean[0].values)
+        print('UH25')
+        print(np.nanmedian(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,21]), axis=1), axis=1).data)*
+                    datavars['UH25'].train_std[0].values+datavars['UH25'].train_mean[0].values)
+        print('UH03')
+        print(np.nanmedian(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,22]), axis=1), axis=1).data)*
+                    datavars['UH03'].train_std[0].values+datavars['UH03'].train_mean[0].values)
+        print('WMAX')
+        print(np.nanmedian(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,23]), axis=1), axis=1).data)*
+                    datavars['WMAX'].train_std[0].values+datavars['WMAX'].train_mean[0].values)
+        print('CTT')
+        print(np.nanmedian(
+            np.nanmin(np.nanmin(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,24]), axis=1), axis=1).data)*
+                    datavars['CTT'].train_std[0].values+datavars['CTT'].train_mean[0].values)
+        
+        
+    def table_output_mode(self, testdata, datavars):
+        
+        """Output paper's table 2 content, which is the variable means of the storm objects (with masks applied).
+        
+        """
+        print('TK')
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,0]), nan_policy='omit')*
+                    datavars['TK'].train_std[0].values+datavars['TK'].train_mean[0].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,1]), nan_policy='omit')*
+                    datavars['TK'].train_std[1].values+datavars['TK'].train_mean[1].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,2]), nan_policy='omit')*
+                    datavars['TK'].train_std[2].values+datavars['TK'].train_mean[2].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,3]), nan_policy='omit')*
+                    datavars['TK'].train_std[3].values+datavars['TK'].train_mean[3].values)
+        print('EV')
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,4]), nan_policy='omit')*
+                    datavars['EV'].train_std[0].values+datavars['EV'].train_mean[0].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,5]), nan_policy='omit')*
+                    datavars['EV'].train_std[1].values+datavars['EV'].train_mean[1].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,6]), nan_policy='omit')*
+                    datavars['EV'].train_std[2].values+datavars['EV'].train_mean[2].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,7]), nan_policy='omit')*
+                    datavars['EV'].train_std[3].values+datavars['EV'].train_mean[3].values)
+        print('EU')
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,8]), nan_policy='omit')*
+                    datavars['EU'].train_std[0].values+datavars['EU'].train_mean[0].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,9]), nan_policy='omit')*
+                    datavars['EU'].train_std[1].values+datavars['EU'].train_mean[1].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,10]), nan_policy='omit')*
+                    datavars['EU'].train_std[2].values+datavars['EU'].train_mean[2].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,11]), nan_policy='omit')*
+                    datavars['EU'].train_std[3].values+datavars['EU'].train_mean[3].values)
+        print('QVAPOR')
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,12]), nan_policy='omit')*
+                    datavars['QVAPOR'].train_std[0].values+datavars['QVAPOR'].train_mean[0].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,13]), nan_policy='omit')*
+                    datavars['QVAPOR'].train_std[1].values+datavars['QVAPOR'].train_mean[1].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,14]), nan_policy='omit')*
+                    datavars['QVAPOR'].train_std[2].values+datavars['QVAPOR'].train_mean[2].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,15]), nan_policy='omit')*
+                    datavars['QVAPOR'].train_std[3].values+datavars['QVAPOR'].train_mean[3].values)
+        print('PRESS')
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,16]), nan_policy='omit')*
+                    datavars['PRESS'].train_std[0].values+datavars['PRESS'].train_mean[0].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,17]), nan_policy='omit')*
+                    datavars['PRESS'].train_std[1].values+datavars['PRESS'].train_mean[1].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,18]), nan_policy='omit')*
+                    datavars['PRESS'].train_std[2].values+datavars['PRESS'].train_mean[2].values)
+        print(stats.mode(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,19]), nan_policy='omit')*
+                    datavars['PRESS'].train_std[3].values+datavars['PRESS'].train_mean[3].values)
+        print('DBZ')
+        print(stats.mode(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,20]), axis=1), axis=1).data,
+            nan_policy='omit')*
+                    datavars['DBZ'].train_std[0].values+datavars['DBZ'].train_mean[0].values)
+        print('UH25')
+        print(stats.mode(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,21]), axis=1), axis=1).data, 
+            nan_policy='omit')*
+                    datavars['UH25'].train_std[0].values+datavars['UH25'].train_mean[0].values)
+        print('UH03')
+        print(stats.mode(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,22]), axis=1), axis=1).data, 
+            nan_policy='omit')*
+                    datavars['UH03'].train_std[0].values+datavars['UH03'].train_mean[0].values)
+        print('WMAX')
+        print(stats.mode(
+            np.nanmax(np.nanmax(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,23]), axis=1), axis=1).data, 
+            nan_policy='omit')*
+                    datavars['WMAX'].train_std[0].values+datavars['WMAX'].train_mean[0].values)
+        print('CTT')
+        print(stats.mode(
+            np.nanmin(np.nanmin(np.ma.masked_where(testdata[:,:,:,-1]==0,testdata[:,:,:,24]), axis=1), axis=1).data, 
+            nan_policy='omit')*
                     datavars['CTT'].train_std[0].values+datavars['CTT'].train_mean[0].values)
 
     
@@ -384,4 +610,101 @@ class VariableTable:
         print('CTT')
         print(np.nanstd(np.ma.masked_where(testdata[:,:,:,-1]==0,
                     testdata[:,:,:,24]*datavars['CTT'].train_std[0].values+datavars['CTT'].train_mean[0].values)))
+
+
+    def bootstrap_mean_percentiles(self, data, var_str, var_indx, hgt_indx, datavars):
+
+        """
+        Args:
+            data: 
+            var_str:
+            var_indx:
+            hgt_indx:
+            datavars:
+            bootnum:
+        """
+        mean_values = []
+        themask = data[:,:,:,-1]
+        vardata = data[:,:,:,var_indx]
+        maskedarray = np.ma.masked_where(themask==0, vardata)
+        for i in range(self.boot_num):
+            np.random.seed(seed=i)
+            indx = np.random.choice(np.arange(0,len(data[:,0,0,0]),1), size=len(data[:,0,0,0]))
+            mean_val = (np.nanmean(maskedarray[indx,:,:]) * datavars[var_str].train_std[hgt_indx].values) +\
+                        datavars[var_str].train_mean[hgt_indx].values
+            mean_values.append(mean_val)
+        return np.nanpercentile(mean_values, q=[self.boot_min, self.boot_max])
     
+    
+    def bootstrap_median_percentiles(self, data, var_str, var_indx, hgt_indx, datavars):
+
+        """
+        Args:
+            data: 
+            var_str:
+            var_indx:
+            hgt_indx:
+            datavars:
+            bootnum:
+        """
+        median_values = []
+        themask = data[:,:,:,-1]
+        vardata = data[:,:,:,var_indx]
+        maskedarray = np.ma.masked_where(themask==0, vardata)
+        for i in range(self.boot_num):
+            np.random.seed(seed=i)
+            indx = np.random.choice(np.arange(0,len(data[:,0,0,0]),1), size=len(data[:,0,0,0]))
+            median_val = (np.nanmedian(maskedarray[indx,:,:].data) * datavars[var_str].train_std[hgt_indx].values) +\
+                          datavars[var_str].train_mean[hgt_indx].values
+            median_values.append(median_val)
+        return np.nanpercentile(median_values, q=[self.boot_min, self.boot_max])
+    
+    
+    def bootstrap_max_percentiles(self, data, var_str, var_indx, hgt_indx, datavars):
+
+        """
+        Args:
+            data: 
+            var_str:
+            var_indx:
+            hgt_indx:
+            datavars:
+            bootnum:
+        """
+        max_values = []
+        themask = data[:,:,:,-1]
+        vardata = data[:,:,:,var_indx]
+        maskedarray = np.ma.masked_where(themask==0, vardata)
+        for i in range(self.boot_num):
+            np.random.seed(seed=i)
+            indx = np.random.choice(np.arange(0,len(data[:,0,0,0]),1), size=len(data[:,0,0,0]))
+            tempmax = maskedarray[indx,:,:] * datavars[var_str].train_std[hgt_indx].values +\
+                      datavars[var_str].train_mean[hgt_indx].values
+            max_val = np.nanmax(tempmax)
+            max_values.append(max_val)
+        return np.nanpercentile(max_values, q=[self.boot_min, self.boot_max])
+    
+    
+    def bootstrap_min_percentiles(self, data, var_str, var_indx, hgt_indx, datavars):
+
+        """
+        Args:
+            data: 
+            var_str:
+            var_indx:
+            hgt_indx:
+            datavars:
+            bootnum:
+        """
+        mean_values = []
+        themask = data[:,:,:,-1]
+        vardata = data[:,:,:,var_indx]
+        maskedarray = np.ma.masked_where(themask==0, vardata)
+        for i in range(self.boot_num):
+            np.random.seed(seed=i)
+            indx = np.random.choice(np.arange(0,len(data[:,0,0,0]),1), size=len(data[:,0,0,0]))
+            mean_val = (np.nanmin(maskedarray[indx,:,:]) * datavars[var_str].train_std[hgt_indx].values) +\
+                        datavars[var_str].train_mean[hgt_indx].values
+            mean_values.append(mean_val)
+        return np.nanpercentile(mean_values, q=[self.boot_min, self.boot_max])
+

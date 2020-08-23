@@ -379,6 +379,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         cmap = plt.cm.get_cmap("Reds")
+        print(np.nanmax(test_data[composite_group][input_index, :, :, test.extract_uh25_index(testdata)] * test.uh25_std + test.uh25_mean))
         return xr.plot.pcolormesh(
             test_data[composite_group][input_index, :, :, test.extract_uh25_index(testdata)] * test.uh25_std + test.uh25_mean, 
                                 cmap=cmap, vmin=-75, vmax=75)
@@ -415,11 +416,6 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             input_index (int): The example's index to to preview.
             dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
             test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
-            vmin (int): Minimum value for ``pcolormesh`` plot.
-            vmax (int): Maximum value for ``pcolormesh`` plot.
-            cmap (str): Matplotlib colorbar name for visualization.
         
         """
         testdata=test_data[composite_group]
