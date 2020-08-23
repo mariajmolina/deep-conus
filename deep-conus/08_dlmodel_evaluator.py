@@ -132,10 +132,10 @@ class EvaluateDLModel:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
-    
+
 
     def variable_translate(self, variable):
-        
+
         """Variable name for the respective filenames.
            
         Args:
@@ -167,40 +167,40 @@ class EvaluateDLModel:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``MASK``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
-            
-    
+
+
     def add_dbz(self):
         
         """Function that adds ``DBZ`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'DBZ')
-        
-        
+
+
     def add_uh25(self):
         
         """Function that adds ``UH25`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'UH25')
-        
-        
+
+
     def add_uh03(self):
         
         """Function that adds ``UH03`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'UH03')
-        
-        
+
+
     def add_wmax(self):
         
         """Function that adds ``WMAX`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'WMAX')
-        
-        
+
+
     def add_ctt(self):
         
         """Function that adds ``CTT`` variable to last dim of test data array.
@@ -759,31 +759,31 @@ class EvaluateDLModel:
         
         """
         self.grab_verification_indices()
-        tp_array=test_data[self.tp_indx,:,:,:].squeeze()
-        fp_array=test_data[self.fp_indx,:,:,:].squeeze()
-        fn_array=test_data[self.fn_indx,:,:,:].squeeze()
-        tn_array=test_data[self.tn_indx,:,:,:].squeeze()
-        tp_99_array=test_data[self.tp_99_indx,:,:,:].squeeze()
-        fp_99_array=test_data[self.fp_99_indx,:,:,:].squeeze()
-        fn_01_array=test_data[self.fn_01_indx,:,:,:].squeeze()
-        tn_01_array=test_data[self.tn_01_indx,:,:,:].squeeze()
+        tp_array = test_data[self.tp_indx,:,:,:].squeeze()
+        fp_array = test_data[self.fp_indx,:,:,:].squeeze()
+        fn_array = test_data[self.fn_indx,:,:,:].squeeze()
+        tn_array = test_data[self.tn_indx,:,:,:].squeeze()
+        tp_99_array = test_data[self.tp_99_indx,:,:,:].squeeze()
+        fp_99_array = test_data[self.fp_99_indx,:,:,:].squeeze()
+        fn_01_array = test_data[self.fn_01_indx,:,:,:].squeeze()
+        tn_01_array = test_data[self.tn_01_indx,:,:,:].squeeze()
         if len(tp_array.shape)==3:
-            tp_array=np.expand_dims(tp_array, axis=0)
+            tp_array = np.expand_dims(tp_array, axis=0)
         if len(fp_array.shape)==3:
-            fp_array=np.expand_dims(fp_array, axis=0)
+            fp_array = np.expand_dims(fp_array, axis=0)
         if len(fn_array.shape)==3:
-            fn_array=np.expand_dims(fn_array, axis=0)
+            fn_array = np.expand_dims(fn_array, axis=0)
         if len(tn_array.shape)==3:
-            tn_array=np.expand_dims(tn_array, axis=0)
+            tn_array = np.expand_dims(tn_array, axis=0)
         if len(tp_99_array.shape)==3:
-            tp_99_array=np.expand_dims(tp_99_array, axis=0)
+            tp_99_array = np.expand_dims(tp_99_array, axis=0)
         if len(fp_99_array.shape)==3:
-            fp_99_array=np.expand_dims(fp_99_array, axis=0)
+            fp_99_array = np.expand_dims(fp_99_array, axis=0)
         if len(fn_01_array.shape)==3:
-            fn_01_array=np.expand_dims(fn_01_array, axis=0)
+            fn_01_array = np.expand_dims(fn_01_array, axis=0)
         if len(tn_01_array.shape)==3:
-            tn_01_array=np.expand_dims(tn_01_array, axis=0)
-        data=xr.Dataset({
+            tn_01_array = np.expand_dims(tn_01_array, axis=0)
+        data = xr.Dataset({
             'tp':(['a','x','y','features'], tp_array),
             'tp_99':(['b','x','y','features'], tp_99_array),
             'fp':(['c','x','y','features'], fp_array),
@@ -808,19 +808,19 @@ class EvaluateDLModel:
                 
     def reliability_info(self, num=None):
         
-        """Generate reliability data.
+        """Generate Brier skill score/attributes diagram data.
         
         Args:
             rel_thresholds (numpy array): Thresholds to use for bins for reliability metrics.
         
         """
-        rel_thresholds=np.arange(0, 1.1, self.bin_res)
+        rel_thresholds = np.arange(0, 1.1, self.bin_res)
         rel_things = pd.DataFrame(np.zeros((1, 6), dtype=int),
                                   columns=["BS", "BSS", "reliability", "resolution", "uncertainty", "climo"])
         rel = DistributedReliability(thresholds=rel_thresholds, obs_threshold=self.obs_threshold)
         rel.update(self.model_probability_forecasts.reshape(-1), self.test_labels)
-        bs=rel.brier_score()
-        bss=rel.brier_skill_score()
+        bs = rel.brier_score()
+        bss = rel.brier_skill_score()
         reliability, resolution, uncertainty=rel.brier_score_components()
         climo = rel.climatology()
         rel_things.iloc[0] += [bs, bss, reliability, resolution, uncertainty, climo]
@@ -872,7 +872,24 @@ class EvaluateDLModel:
                         f'{self.eval_directory}/bss_curve_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
                     df_fq.to_csv(
                         f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
-                
+
+
+    def generate_testfiles(self):
+        
+        """Function to create various testdata files for evaluation.
+
+        This is not for outliers.
+        
+        """
+        print("Opening files...")
+        data = self.open_test_files()
+        print("Assemble and concat...")
+        testdata, labels = self.assemble_and_concat(**data)
+        print("Removing nans and saving...")
+        self.remove_nans(testdata, labels)
+        data = None
+        labels = None
+
         
     def sequence_pfi(self, testdata, num):
         
@@ -883,7 +900,7 @@ class EvaluateDLModel:
         
         """
         print(f"Shuffling seed num {str(num)}...")
-        test_data=self.variable_shuffler(testdata, num)
+        test_data = self.variable_shuffler(testdata, num)
         if self.print_sequential:
             print("Generating DL predictions...")
         self.load_and_predict(test_data)
@@ -894,97 +911,24 @@ class EvaluateDLModel:
         self.reliability_info(num)
         if self.print_sequential:
             print("Evaluation is complete.")
-            
-            
-    def sequence_bootstrap(self, testdata, num):
         
-        """The sequence of functions to call for permutation feature importance.
-        
-        Args:
-            num (int): The iteration seed for shuffling the variable.
-        
-        """
-        print(f"Shuffling seed num {str(num)}...")
-        test_data=self.bootstrap_shuffler(testdata, num)
-        if self.print_sequential:
-            print("Generating DL predictions...")
-        self.load_and_predict(test_data)
-        if self.print_sequential:
-            print("Generating probabilistic and nonprobabilistic skill scores...")
-        self.nonscalar_metrics_and_save(num)
-        self.scalar_metrics_and_save(num)
-        self.reliability_info(num)
-        if self.print_sequential:
-            print("Evaluation is complete.")
-            
-           
-    def generate_testfiles(self):
-        
-        """Function to create various testdata files for evaluation.
-        This is not for outliers.
-        
-        """
-        print("Opening files...")
-        data=self.open_test_files()
-        print("Assemble and concat...")
-        testdata, labels=self.assemble_and_concat(**data)
-        print("Removing nans and saving...")
-        self.remove_nans(testdata, labels)
-        data=None
-        labels=None
-        
-        
-    def intro_sequence_evaluation(self):
-        if self.print_sequential:
-            print("Opening and preparing the test files...")
-        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
-        testdata=data.X_test.astype('float16').values
-        testlabels=data.X_test_label.values
-        data=None
-        return testdata, testlabels
-        
-        
-    def solo_pfi(self, testdata, testlabels):
-        self.test_labels=testlabels
-        self.add_dbz()
-        self.add_uh25()
-        self.add_uh03()
-        self.add_wmax()
-        self.add_ctt()
-        self.add_mask()
-        if self.perm_feat_importance:
-            if not self.pfi_iterations:
-                self.sequence_pfi(testdata, num=0)
-            if self.pfi_iterations:
-                for i in range(self.pfi_iterations):
-                    self.sequence_pfi(testdata, num=i+self.seed_indexer)
-                    
-                    
-    def solo_bootstrap(self, testdata, testlabels):
-        self.test_labels=testlabels
-        self.add_dbz()
-        self.add_uh25()
-        self.add_uh03()
-        self.add_wmax()
-        self.add_ctt()
-        self.add_mask()
-        if self.bootstrap:
-            for i in range(self.boot_iterations):
-                self.sequence_bootstrap(testdata, num=i+self.seed_indexer)
-        
-        
+
     def sequence_the_evaluation(self):
 
-        """Automation of the sequence of functions to produce deep learning model evaluation files.
-        Make sure to have run ``generate_testfiles``.
+        """
+        Automation of the sequence of functions to produce deep learning model evaluation files.
+        
+        Make sure to have run ``generate_testfiles`` first.
+        
+        If attributes diagram information is needed run ``reliability_info`` after.
         
         """
         if self.print_sequential:
             print("Opening and preparing the test files...")
-        data=xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
-        testdata=data.X_test.astype('float16').values
-        self.test_labels=data.X_test_label.values
-        data=None
+        data = xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
+        testdata = data.X_test.astype('float16').values
+        self.test_labels = data.X_test_label.values
+        data = None
         self.add_dbz()
         self.add_uh25()
         self.add_uh03()
@@ -1010,19 +954,23 @@ class EvaluateDLModel:
             if self.pfi_iterations:
                 for i in range(self.pfi_iterations):
                     self.sequence_pfi(testdata, num=i+self.seed_indexer)
-        testdata=None
+        testdata = None
     
     
     def sequence_outlier_evaluation(self):
 
-        """Automation of the sequence of functions to produce deep learning model evaluation files.
-        Make sure to have run ``generate_testfiles``.
+        """
+        Automation of the sequence of functions to produce deep learning model evaluation files for outlier cases.
+        
+        Make sure to have run ``save_qv_files`` first.
+        
+        If attributes diagram information is needed run ``reliability_info`` after.
         
         """
         if self.print_sequential:
-            print("Opening and preparing the test files...")
-        testdata, labels=self.load_qv_files()
-        self.test_labels=labels
+            print("Opening and preparing the outlier test files...")
+        testdata, labels = self.load_qv_files()
+        self.test_labels = labels
         self.add_dbz()
         self.add_uh25()
         self.add_uh03()
@@ -1031,7 +979,7 @@ class EvaluateDLModel:
         self.add_mask()
         if not self.perm_feat_importance:
             if self.print_sequential:
-                print("Generating DL predictions...")
+                print("Generating DL outlier predictions...")
             self.load_and_predict(testdata)
             if self.print_sequential:
                 print("Generating probabilistic and nonprobabilistic skill scores...")
@@ -1041,7 +989,7 @@ class EvaluateDLModel:
                 print("Saving the indexed variables...")
             self.save_indx_variables(testdata)
             if self.print_sequential:
-                print("Evaluation is complete.")
+                print("Evaluation for outliers is complete.")
         if self.perm_feat_importance:
             if not self.pfi_iterations:
                 self.sequence_pfi(testdata, num=0)
@@ -1051,4 +999,65 @@ class EvaluateDLModel:
                         self.sequence_pfi(testdata, num=i+self.seed_indexer)
                 if self.num_cpus:
                     self.permutation_feat_importance()
-        testdata=None
+        testdata = None
+
+
+    def intro_sequence_evaluation(self):
+        if self.print_sequential:
+            print("Opening and preparing the test files...")
+        data = xr.open_dataset(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
+        testdata = data.X_test.astype('float16').values
+        testlabels = data.X_test_label.values
+        data = None
+        return testdata, testlabels
+
+
+    def solo_pfi(self, testdata, testlabels):
+        self.test_labels = testlabels
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        if self.perm_feat_importance:
+            if not self.pfi_iterations:
+                self.sequence_pfi(testdata, num=0)
+            if self.pfi_iterations:
+                for i in range(self.pfi_iterations):
+                    self.sequence_pfi(testdata, num=i+self.seed_indexer)
+
+                    
+    def sequence_bootstrap(self, testdata, num):
+        
+        """The sequence of functions to call for permutation feature importance.
+        
+        Args:
+            num (int): The iteration seed for shuffling the variable.
+        
+        """
+        print(f"Shuffling seed num {str(num)}...")
+        test_data = self.bootstrap_shuffler(testdata, num)
+        if self.print_sequential:
+            print("Generating DL predictions...")
+        self.load_and_predict(test_data)
+        if self.print_sequential:
+            print("Generating probabilistic and nonprobabilistic skill scores...")
+        self.nonscalar_metrics_and_save(num)
+        self.scalar_metrics_and_save(num)
+        self.reliability_info(num)
+        if self.print_sequential:
+            print("Evaluation is complete.")
+                    
+
+    def solo_bootstrap(self, testdata, testlabels):
+        self.test_labels = testlabels
+        self.add_dbz()
+        self.add_uh25()
+        self.add_uh03()
+        self.add_wmax()
+        self.add_ctt()
+        self.add_mask()
+        if self.bootstrap:
+            for i in range(self.boot_iterations):
+                self.sequence_bootstrap(testdata, num=i+self.seed_indexer)
