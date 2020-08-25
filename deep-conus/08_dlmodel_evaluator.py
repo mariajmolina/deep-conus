@@ -698,7 +698,7 @@ class EvaluateDLModel:
                         self.contingency_scalar_table.to_csv(
                             f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         return
-                
+
         
     def grab_verification_indices(self):
         
@@ -827,6 +827,39 @@ class EvaluateDLModel:
                     f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
                 
                 
+    def save_indices_pfi(self, test_data, num=None):
+        
+        """Extract the respective test data cases using indices from ``grab_verification_indices`` for PFI composites.
+        
+        """
+        np.arange(0,test_data.shape[0],1)
+        np.random.seed(num)
+        orig_indx = np.random.permutation(test_data.shape[0])
+        self.grab_verification_indices()
+        data = xr.Dataset({
+            'tp_indx':(['a'], self.tp_indx),
+            'fp_indx':(['b'], self.fp_indx),
+            'fn_indx':(['c'], self.fn_indx),
+            'tn_indx':(['d'], self.tn_indx),
+            'orig_indx':(['e'], orig_indx),
+            'predicts':(['f'], self.model_probability_forecasts[:,0]),
+            },
+            coords=
+            {'features':(['features'], self.apply_variable_dictionary()),
+            })
+        if not self.bootstrap:
+            if not self.outliers:
+                if self.method=='random':
+                    if self.perm_feat_importance:
+                        data.astype('float32').to_netcdf(
+                            f'{self.eval_directory}/comppfi_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.nc')
+            if self.outliers:
+                if self.method=='random':
+                    if self.perm_feat_importance:
+                        data.astype('float32').to_netcdf(
+                            f'{self.eval_directory}/comppfi_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.nc')
+
+
     def reliability_info(self, num=None):
         
         """Generate Brier skill score/attributes diagram data.
@@ -930,6 +963,7 @@ class EvaluateDLModel:
         self.nonscalar_metrics_and_save(num)
         self.scalar_metrics_and_save(num)
         self.reliability_info(num)
+        self.save_indices_pfi(test_data, num=num)
         if self.print_sequential:
             print("Evaluation is complete.")
         
