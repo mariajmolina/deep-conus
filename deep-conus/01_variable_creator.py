@@ -36,19 +36,16 @@ class ComputeVariable:
             raise Exception("Please enter current or future as string for climate period selection.")
         else:
             self.climate=climate
-
         if self.climate == 'current':
             self.folder='CTRL3D'
             self.filename='CTRL'
         if self.climate == 'future':
             self.folder='PGW3D'
             self.filename='PGW'
-
         if variable!='CAPE' and variable!='CTT' and variable!='UH':
             raise Exception("Variable not available. Please enter CAPE, CTT, or UH.")
         else:
             self.variable=variable
-
         self.month1=month_start
         self.month2=month_end
         self.year1=year_start
@@ -56,10 +53,8 @@ class ComputeVariable:
             self.year2 = year_end + 1
         if year_start!=year_end:
             self.year2=year_end
-
         self.destination=destination
         self.rda_path=rda_path
-
         self.daskstatus=start_dask
         if self.daskstatus:
             if not project_code:
@@ -68,12 +63,10 @@ class ComputeVariable:
                 self.project_code=project_code
                 self.cluster_min=cluster_min
                 self.cluster_max=cluster_max
-
         self.dx=dx
         self.dy=dy
         self.uh_bottom=uh_bottom
         self.uh_top=uh_top
-
 
     def open_files(self, year, month):
     
@@ -170,7 +163,6 @@ class ComputeVariable:
                                            combine='by_coords', parallel=True, chunks={'Time':1}).EV
             return data_zstag, data_wstag, data_ustag, data_vstag, data_mapfc
 
-
     def activate_workers(self):
         
         """Function to activate dask workers.
@@ -188,7 +180,6 @@ class ComputeVariable:
         client=Client(cluster)
         client
 
-
     def generate_timestrings(self):
         
         """Function to generate analysis years and months as strings.
@@ -203,7 +194,6 @@ class ComputeVariable:
         formatter="{:04d}".format
         years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
-
 
     def create_the_variable_files(self):
 
@@ -271,7 +261,6 @@ class ComputeVariable:
                     data_wstag=data_wstag.close()           
                     print(f"{yr} {mo} complete")
 
-
 def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag):
     
     """Function to compute ``cape``, ``cin``, ``lcl``, and ``lfc`` using wrf-python.
@@ -298,8 +287,6 @@ def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_ss
                         terrain=data_mapfc, 
                         psfc_hpa=data_sstag.squeeze(), 
                         ter_follow=True, meta=True).expand_dims("Time"))
-
-
 
 def apply_wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag):
     
@@ -330,7 +317,6 @@ def apply_wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, d
                                            ['south_north','west_east']],
                           output_sizes=dict(mcape_mcin_lcl_lfc=4,south_north=1015, west_east=1359),
                           output_core_dims=[['mcape_mcin_lcl_lfc','south_north','west_east']])
-                          
 
 def wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag):
     
@@ -361,7 +347,6 @@ def wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag
                     data_icestag.squeeze(), 
                     fill_nocloud=False, missing=9.969209968386869e+36, opt_thresh=1.0, 
                     meta=True, units='degC').expand_dims("Time"))
-
 
 def apply_wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag):
     
@@ -394,7 +379,6 @@ def apply_wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data
                           output_sizes=dict(south_north=1015, west_east=1359),
                           output_core_dims=[['south_north','west_east']])
 
-
 def wrf_UH(z, mapfc, u, v, w, dx, dy, bottom, top):
     
     """Function to compute ``updraft helicity`` using wrf-python.
@@ -417,7 +401,6 @@ def wrf_UH(z, mapfc, u, v, w, dx, dy, bottom, top):
     import wrf
     return (wrf.udhel( z.squeeze(), mapfc, u.squeeze(), v.squeeze(), w.squeeze(), \
                       dx=dx, dy=dy, bottom=bottom, top=top, meta=True).expand_dims("Time"))
-
 
 def apply_wrf_UH(data_zstag, data_mapfc, data_ustag, data_vstag, data_wstag, dx, dy, bottom, top):
     

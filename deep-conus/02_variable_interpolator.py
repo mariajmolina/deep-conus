@@ -36,31 +36,25 @@ class InterpolateVariable:
             raise Exception("Please enter current or future as string for climate period selection.")
         else:
             self.climate=climate
-
         if self.climate=='current':
             self.folder='CTRL3D'
             self.filename='CTRL'
         if self.climate=='future':
             self.folder='PGW3D'
             self.filename='PGW'
-
         if variable!='TK' and variable!='QVAPOR' and variable!='EU' and variable!='EV' and variable!='P' and variable!='QGRAUP' and variable!='W' and variable!='MAXW':
             raise Exception("Variable not available. Please enter TK, QVAPOR, EU, EV, P, QGRAUP, W, or MAXW.")
         else:
             self.variable=variable
-
         self.month1=month_start
         self.month2=month_end
         self.year1=year_start
-
         if year_start==year_end:
             self.year2 = year_end + 1
         if year_start!=year_end:
             self.year2=year_end
-
         self.destination=destination
         self.rda_path=rda_path
-
         self.daskstatus=start_dask
         if self.daskstatus:
             if not project_code:
@@ -70,7 +64,6 @@ class InterpolateVariable:
                 self.cluster_min=cluster_min
                 self.cluster_max=cluster_max
 
-    
     def open_files(self, year, month):
     
         """Helper function to open data sets for interpolation calculation for current climate.
@@ -128,7 +121,6 @@ class InterpolateVariable:
                                        combine='by_coords', parallel=True, chunks={'Time':1}).QGRAUP
         return data_AGL, data_var
 
-
     def activate_workers(self):
         
         """Function to activate dask workers.
@@ -142,7 +134,6 @@ class InterpolateVariable:
         print(cluster.job_script())
         client=Client(cluster)
         client
-
 
     def generate_timestrings(self):
         
@@ -158,7 +149,6 @@ class InterpolateVariable:
         formatter="{:04d}".format
         years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
         return years, months
-
 
     def create_the_interp_files(self):
 
@@ -186,7 +176,6 @@ class InterpolateVariable:
                 data_var=data_var.close()
                 print(f"{yr} {mo} complete")
 
-
     def create_the_max_files(self):
 
         """Automate the work pipeline and sequence of functions to be run to create the maximum value files.
@@ -212,7 +201,6 @@ class InterpolateVariable:
                 data_var=data_var.close()
                 print(f"{yr} {mo} complete")
 
-
 def wrf_interp(data_AGL, data_var):
 
     """Function to compute interpolation using wrf-python.
@@ -231,7 +219,6 @@ def wrf_interp(data_AGL, data_var):
     return (wrf.interplevel(data_var.squeeze(),
                             data_AGL.squeeze(),
                             [1000,3000,5000,7000]).expand_dims("Time"))
-
 
 def apply_wrf_interp(data_AGL, data_var):
 
@@ -252,7 +239,6 @@ def apply_wrf_interp(data_AGL, data_var):
                                            ['bottom_top','south_north','west_east']],
                           output_sizes=dict(level=4, south_north=1015, west_east=1359),
                           output_core_dims=[['level','south_north','west_east']])
-
 
 def apply_wrf_interp_W(data_AGL, data_var):
 

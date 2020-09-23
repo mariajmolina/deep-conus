@@ -2,15 +2,12 @@ import keras
 import tensorflow as tf
 from keras import backend as K
 from keras.backend.tensorflow_backend import set_session
-
 from keras.models import Model, save_model, load_model, Sequential
 from keras.layers import Dense, Activation, Conv2D, Input, AveragePooling2D, MaxPooling2D
 from keras.layers import SpatialDropout2D, Flatten, LeakyReLU, Dropout, BatchNormalization, LeakyReLU
 from keras.optimizers import SGD, Adam
 from keras.regularizers import l2
-
 from sklearn.metrics import mean_squared_error, roc_auc_score
-
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -120,7 +117,7 @@ class DLTraining:
         elif self.output_func_and_loss=='softmax':
             self.denseshape=2
             self.loss_func='sparse_categorical_crossentropy'
-        else: #sigmoid_bin
+        else: # sigmoid_bin
             self.denseshape=1        
             self.loss_func='binary_crossentropy'
             self.output_activation='sigmoid'
@@ -141,8 +138,7 @@ class DLTraining:
         if self.additional_dense:
             self.additional_dense_units=additional_dense_units
             self.additional_dense_activation=additional_dense_activation
-        
-        
+
     def variable_translate(self, variable):
         
         """Variable name for the respective filenames.
@@ -176,7 +172,6 @@ class DLTraining:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, ``MASK``, or ``DBZ`` as variable.")
-            
 
     def initiate_session(self):
         
@@ -189,16 +184,14 @@ class DLTraining:
                                               # (nothing gets printed in Jupyter, only if you run it standalone)
         sess=tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
-    
-    
+
     def add_mask(self):
         
         """Function that adds ``MASK`` variable to last dim of test data array.
         
         """
         return xr.open_dataset(f'/{test.dlfile_directory}/{test.climate}_mask_{test.mask_str}_dldata_traintest.nc')
-        
-    
+
     def open_files(self):
 
         """Open the training data files.
@@ -234,7 +227,6 @@ class DLTraining:
                         f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_valid.nc')
                 return datas
 
-
     def transpose_load_concat(self, **kwargs):
         
         """Eagerly load the training labels and data, reshaping data to have features in final dim.
@@ -262,7 +254,6 @@ class DLTraining:
             X_train=np.squeeze(np.asarray(list(thedatas.values())))
         return X_train, label
 
-        
     def omit_nans(self, data, label):
 
         """Remove any ``nans`` from the training data.
@@ -282,8 +273,7 @@ class DLTraining:
         traindata=data[maskarray,:,:,:]
         trainlabel=label[maskarray]
         return traindata, trainlabel
-    
-    
+
     def compile_model(self, data):
 
         """Assemble and compile the deep conv neural network.
@@ -406,8 +396,7 @@ class DLTraining:
         model.compile(optimizer=Adam(lr=self.learning_rate), loss=self.loss_func, metrics=['accuracy', 'mean_squared_error', 'mean_absolute_error'])
         print(model.summary())
         return model
-        
-        
+
     def train_dl(self, model, data, label):
         
         """Train the compiled DL model, save the trained model, and save the history and metric information from training to 
@@ -427,7 +416,6 @@ class DLTraining:
                           shuffle=True)
         pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
         save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
-    
 
     def sequence_funcs(self):
         
@@ -457,18 +445,12 @@ class DLTraining:
         data=None
         train_data=None
         label_data=None
-        
-    
+
     def retrain_dl(self):
         
         """Re-train the compiled DL model, save the trained model, and save the history and metric information from training to 
         ``self.dl_filedirectory``.
-            
-        Args: 
-            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
-            data (numpy array): Training data with ``nans`` removed.
-            label (numpy array): Corresponding labels of data.
-            
+
         """
         if self.print_sequential:
             print("Opening files...")

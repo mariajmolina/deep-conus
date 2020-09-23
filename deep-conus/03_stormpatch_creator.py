@@ -3,14 +3,11 @@ import xarray as xr
 import pandas as pd
 from datetime import timedelta
 import calendar
-
 import multiprocessing as mp
-
 import cartopy.io.shapereader as shpreader
 import shapely.geometry as sgeom
 from shapely.ops import unary_union
 from shapely.prepared import prep
-
 from hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
 
@@ -30,12 +27,13 @@ class StormPatchCreator:
         patch_radius (int): The number of grid points to extract from the center of mass. Defaults to 16 for a 32x32 pixel storm patch.
         method (str): Method for identifying storm ojects. Options include ``ew`` for enhanced watershed, ``ws`` for regular watershed, 
                       and ``hyst`` for hysteresis. Defaults to ``ws``.
-        dbz_path (str): Directory where the radar reflectivity data is contained.
+        dbz_path (str): Directory where the radar reflectivity data is contained. 
+                        Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/`` for WRF files on NCAR Research Data Archive.
         uh25_path (str): Directory where the updraft helicity (2-5-km) data is contained. Defaults to None.
         uh03_path (str): Directory where the updraft helicity (0-3-km) data is contained. Defaults to None.
         ctt_path (str): Directory where the cloud top temperature data is contained. Defaults to None.
         variable (str): Variable to extract for storm patches. Options include ``TK``, ``EU``, ``EV``, ``QVAPOR``, ``PRESS``, ``W_vert``, 
-                        or ``WMAX``. Defaults to None.
+                        or ``WMAX``. Defaults to ``None``.
         variable_path (str): Path to where the variable files are located. Defaults to None.
         num_cpus (int): Number of CPUs for to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
@@ -53,27 +51,22 @@ class StormPatchCreator:
         
         self.date1=date1
         self.date2=date2
-
         if climate!='current' and climate!='future':
             raise Exception("Please enter current of future climate as choice analysis.")
         else:
             self.climate=climate
-
         if self.climate=='current':
             self.filename='CTRL'
         if self.climate=='future':
             self.filename='PGW'
-
         self.destination_path=destination_path
         self.min_dbz=min_dbz
         self.max_dbz=max_dbz
         self.patch_radius=patch_radius
-        
         if method!='ws' and method!='ew' and method!='hyst':
             raise Exception("Please enter ws, ew, or hyst method for identifying storm object.")
         else:
             self.method=method
-        
         self.dbz_path=dbz_path
         self.uh25_path=uh25_path
         self.uh03_path=uh03_path
@@ -81,7 +74,6 @@ class StormPatchCreator:
         self.variable=variable
         self.variable_path=variable_path
         self.num_cpus=num_cpus
-        
         
     def variable_translate(self):
         
@@ -109,7 +101,6 @@ class StormPatchCreator:
         except:
             raise ValueError("Please enter ``TK``, ``EU``, ``EV``, ``QVAPOR``, ``PRESS``, ``W_vert``, or ``WMAX`` as variable.")
 
-        
     def generate_timestring(self):
         
         """Function to generate the timestrings for looping and computing variable over the chosen climate period. 
@@ -121,7 +112,6 @@ class StormPatchCreator:
         """
         return pd.date_range(self.date1, self.date2, freq='D')
 
-    
     def total_pixels(self):
         
         """Function to help compute the total number of grid boxes (or pixels) in a storm patch.
@@ -131,7 +121,6 @@ class StormPatchCreator:
             
         """
         return (self.patch_radius*2)*(self.patch_radius*2)
-    
 
     def time_slice_help(self, month):
         
@@ -155,7 +144,6 @@ class StormPatchCreator:
             mon_1='10'; mon_2='12'
         return mon_1, mon_2
     
-    
     def prep_land(self):
         
         """Function to generate landmass that will be used for identifying storms that occur over land and over water.
@@ -166,8 +154,7 @@ class StormPatchCreator:
         """
         land_shp_fname=shpreader.natural_earth(resolution='50m', category='physical', name='land')
         land_geom=unary_union(list(shpreader.Reader(land_shp_fname).geometries()))
-        return prep(land_geom) 
-    
+        return prep(land_geom)
     
     def is_land(self, land, x, y):
         
@@ -182,7 +169,6 @@ class StormPatchCreator:
             
         """
         return land.contains(sgeom.Point(x, y))
-    
 
     def parallelizing_hourly_func(self):
         
@@ -193,9 +179,9 @@ class StormPatchCreator:
         """
         times_thisfile=self.generate_timestring()
     
-        #default values for the WRF CONUS1 dataset below, 
-        #including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
-        #(we don't care about storms over water
+        # default values for the WRF CONUS1 dataset below, 
+        # including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
+        # (we don't care about storms over water
         total_times=pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
         total_times_indexes=np.arange(0,total_times.shape[0],1)
         the1=135; the2=650; the3=500; the4=1200
@@ -220,7 +206,6 @@ class StormPatchCreator:
         pool.join()
         print("completed")
 
-    
     def create_patches_hourly(self, num, data, lats, lons, thetimes, times_thisfile):
 
         """Function to find storm patches in WRF CONUS1 dataset. Saves output to Xarray dataset with metadata.
@@ -269,8 +254,7 @@ class StormPatchCreator:
             })
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc")
         return(num)
-    
-    
+
     def create_patches_3H(self, datetime_value):
 
         """Function to extract data that corresponds to previously extracted storm patches with ``create_patches_hourly()``. These 
@@ -282,25 +266,25 @@ class StormPatchCreator:
         """
         land=self.prep_land()
         
-        #default values for the WRF CONUS1 dataset below, 
-        #including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
-        #(we don't care about storms over water
+        # default values for the WRF CONUS1 dataset below, 
+        # including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
+        # (we don't care about storms over water
         total_times=pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
         total_times_indexes=np.arange(0,total_times.shape[0],1)
         the1=135; the2=650; the3=500; the4=1200
-        #creation of blank lists for variable saving
+        # creation of blank lists for variable saving
         UH25_to_return=[]; UH03_to_return=[]; CT_to_return=[]; DZ_to_return=[]; MASK_to_return=[]
         ROW_to_return=[]; COL_to_return=[]; LAT_to_return=[]; LON_to_return=[]
         STM_to_return=[]; ETM_to_return=[]; XSPD_to_return=[]; YSPD_to_return=[]        
         
         print(f"doing {self.climate}: {datetime_value.strftime('%Y%m%d')}")
-        #open the original hourly storm patches that were created and saved
+        # open the original hourly storm patches that were created and saved
         file_storm=f"/{self.destination_path}/{self.climate}_SPhourly_{datetime_value.strftime('%Y%m%d')}.nc"
         data_storm=xr.open_dataset(file_storm)
         #create boolean list of the values that are 3 hourly for variable extraction
         check_3H_datastorm=np.isin(data_storm.starttime.values,total_times_indexes[::3])
         
-        #opening the variable data sets (UH and CTT)
+        # opening the variable data sets (UH and CTT)
         if not self.uh03_path or not self.uh25_path or not self.ctt_path:
             raise Exception("Please enter the paths to UH and CTT data.")
         file_uh25=f"/{self.uh25_path}/wrf2d_UH_{datetime_value.strftime('%Y%m')}.nc"
@@ -311,7 +295,7 @@ class StormPatchCreator:
             data_uh03=xr.open_dataset(file_uh03)
             data_ctt=xr.open_dataset(file_ctt)
         except IOError:
-            #very few days do not contain identified storms, avoid job kill with exception here.
+            # very few days do not contain identified storms, avoid job kill with exception here.
             print(f"not found {datetime_value.strftime('%Y%m%d')}")
             return
 
@@ -368,8 +352,7 @@ class StormPatchCreator:
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SP3hourly_{datetime_value.strftime('%Y%m%d')}.nc")
         print(f"completed {datetime_value.strftime('%Y%m%d')}")
         return
-        
-        
+
     def parallelizing_3hourly_func(self):
             
         """Activate the multiprocessing function and parallelize the creation of 3-hourly storm patches for efficiency.
@@ -384,7 +367,6 @@ class StormPatchCreator:
         pool.join()
         print("completed")
 
-        
     def create_patches_variable(self, datetime_value):
 
         """Function to extract variable data that corresponds to previously extracted 3-hour storm patches with ``create_patches_3H()``.
@@ -395,9 +377,9 @@ class StormPatchCreator:
         """
         land=self.prep_land()
         
-        #default values for the WRF CONUS1 dataset below, 
-        #including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
-        #(we don't care about storms over water
+        # default values for the WRF CONUS1 dataset below, 
+        # including the full time range for indexing simulations and slicing the CONUS spatially for efficiency 
+        # (we don't care about storms over water
         total_times=pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
         total_times_indexes=np.arange(0,total_times.shape[0],1)
         the1=135; the2=650; the3=500; the4=1200
@@ -410,7 +392,7 @@ class StormPatchCreator:
         print(f"doing {self.climate}, {self.variable}: {datetime_value.strftime('%Y%m%d')}")
         file_storm=f"/{self.destination_path}/{self.climate}_SPhourly_{datetime_value.strftime('%Y%m%d')}.nc"
         data_storm=xr.open_dataset(file_storm)
-        #opening the variable data set
+        # opening the variable data set
         if self.variable!='WMAX':
             file_var=f"/{self.variable_path}/{self.variable}/wrf2d_interp_{self.variable_translate()}_{datetime_value.strftime('%Y%m')}.nc"
         if self.variable=='WMAX':
@@ -418,7 +400,7 @@ class StormPatchCreator:
         try:
             data_var=xr.open_dataset(file_var)
         except IOError:
-            #very few days do not contain identified storms, avoid job kill with exception here.
+            # very few days do not contain identified storms, avoid job kill with exception here.
             print(f"not found {datetime_value.strftime('%Y%m%d')}")
             return
         
@@ -495,7 +477,6 @@ class StormPatchCreator:
         print(f"completed {datetime_value.strftime('%Y%m%d')}")
         return
 
-    
     def parallelizing_3Hvariable_func(self):
             
         """Activate the multiprocessing function, and parallelize the creation of 3-hourly variable extractions.
@@ -512,5 +493,3 @@ class StormPatchCreator:
         pool.close()
         pool.join()
         print("completed")
-        
-        

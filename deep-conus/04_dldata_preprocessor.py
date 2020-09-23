@@ -1,7 +1,6 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
-
 import multiprocessing as mp
 
 
@@ -13,13 +12,13 @@ class PreprocessData:
 
     Attributes:
         working_directory (str): The path to the directory where the deep learning preprocessing files will be saved and worked from. 
-        destination_path (str): Where the storm patch files were saved.
+        stormpatch_path (str): Where the storm patch files were saved.
         climate (str): The climate period to derive deep learning data for. Options are ``current`` or ``future``.
         method (str): Variable choice(s) for preprocessing data, which include ``UHsingle`` and ``UHdouble``.
         threshold1 (int): The threshold to use for the chosen method. This value will delineate some form of ``severe`` and ``non-severe`` storm patches.
-        mask (boolean): Whether the threshold will be applied within the storm patch mask or within the full storm patch. Defaults to ``False``.
         threshold2 (int): The second threshold for ``UHdual`` method. Defaults to ``None``.
-        num_cpus (int): Number of CPUs for to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
+        mask (boolean): Whether the threshold will be applied within the storm patch mask or within the full storm patch. Defaults to ``False``.
+        num_cpus (int): Number of CPUs to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
@@ -33,14 +32,12 @@ class PreprocessData:
 
         self.working_directory=working_directory
         self.stormpatch_path=stormpatch_path
-
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
         else:
             self.climate=climate
-            
-        if method!='UHsingle' and method!='UHdual' and method!='GRP':
-            raise Exception("Incorrect method. Please enter UHsingle, UHdouble, or GRP.")
+        if method!='UHsingle' and method!='UHdual':
+            raise Exception("Incorrect method. Please enter UHsingle or UHdouble.")
         else:
             self.method=method
             self.threshold1=threshold1
@@ -49,15 +46,12 @@ class PreprocessData:
                     self.threshold2=threshold2
                 if not self.threshold2: 
                     raise Exception("Please enter a threshold for UH 0-3 km (dual UH method).")
-                    
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
-
         self.num_cpus=num_cpus
-
 
     def generate_time_full(self):
         
@@ -75,7 +69,6 @@ class PreprocessData:
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==3)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==4)|
                                                                   (pd.date_range('2000-10-01','2013-09-30',freq='MS').month==5)]
-
 
     def create_data_indices(self, time):
         
@@ -98,13 +91,12 @@ class PreprocessData:
                 
         if self.method=='UHdual':
             if not self.mask:
-                ###
+                ### To do
                 return
             if self.mask:
-                ###
+                ### To do
                 return
-                         
-                
+
     def parallelizing_indxs(self):
         
         """Activate the multiprocessing function to parallelize the functions.
@@ -119,7 +111,6 @@ class PreprocessData:
         pool1.close()
         pool1.join()
         print(f"Completed the jobs.")
- 
             
     def generate_time_month(self, month_int):
         
@@ -133,7 +124,6 @@ class PreprocessData:
             
         """
         return pd.date_range('2000-10-01','2013-09-30',freq='MS')[(pd.date_range('2000-10-01','2013-09-30',freq='MS').month==month_int)]
-    
             
     def apply_exceed_mask(self, data_var, data_mask, level):
         
@@ -150,7 +140,6 @@ class PreprocessData:
         """        
         return data_var.var_grid.sel(levels=level)[data_mask.grid.values,:,:]
     
-    
     def apply_notexceed_mask(self, data_var, data_mask, level):
 
         """Function to retain the patches that did not exceed the threshold.
@@ -165,8 +154,7 @@ class PreprocessData:
         
         """    
         return np.delete(data_var.var_grid.sel(levels=level).values, data_mask.grid.values, axis=0)
-    
-    
+
     def flatten_list(self, array):
         
         """Function to flatten the created list of Xarray data arrays.
@@ -179,8 +167,7 @@ class PreprocessData:
         
         """
         return [j for i in array for j in i.values]
-    
-    
+
     def flatten_arraylist(self, array):
         
         """Function to flatten the created list of numpy arrays.
@@ -194,7 +181,6 @@ class PreprocessData:
         """
         return [j for i in array for j in i]
 
-        
     def month_translate(self, num):
         
         """Convert integer month to string month.
@@ -220,8 +206,7 @@ class PreprocessData:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
-            
-        
+
     def run_months(self, months=np.array([12,1,2,3,4,5]), uh=True, nouh=True):
         
         """Function to automate and parallelize the creation of the exceedance/nonexceedance files.
@@ -243,7 +228,6 @@ class PreprocessData:
         pool2.close()
         pool2.join()
         print(f"Completed the jobs.")
-        
 
     def create_files_exceed_threshold(self, month_int):
         
@@ -377,7 +361,6 @@ class PreprocessData:
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
         print(f"Exceedances for {time.strftime('%m')} complete...")
 
-
     def create_files_notexceed_threshold(self, month_int):
 
         """Create files containing environment patches for storms that did not exceed the threshold.
@@ -509,4 +492,3 @@ class PreprocessData:
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
         print(f"Non exceedances for {time.strftime('%m')} complete...")
-

@@ -23,10 +23,6 @@ class SplitAndStandardize:
             
     Raises:
         Exceptions: Checks whether correct values were input for climate, variable, and percent_split.
-            
-    Todo:
-        * Add second threshold option once it is added as to ``preprocess_dl_data.py``.
-        * Add option to not standardize ``DBZ``.
         
     """
     
@@ -36,7 +32,6 @@ class SplitAndStandardize:
             raise Exception("Please enter current or future for climate option.")
         else:
             self.climate=climate
-            
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03' and variable!='MASK':
             raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ, or MASK as variable.")
@@ -125,18 +120,15 @@ class SplitAndStandardize:
             raise Exception("Percent split should be a float less than 1.")
         if percent_split<1:
             self.percent_split=percent_split
-            
         self.working_directory=working_directory
         self.threshold1=threshold1
         self.unbalanced=unbalanced
         self.validation=validation
-        
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
-    
 
     def variable_translate(self):
         
@@ -168,8 +160,7 @@ class SplitAndStandardize:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EU``, ``EV``, ``QVAPOR``, ``PRESS``, ``DBZ``, ``CTT``, ``UH25``, ``UH03``, ``W_vert``, ``WMAX``, or ``MASK`` as variable.")
-        
-    
+
     def open_above_threshold(self):
         
         """Open and concat files for the six months of analysis (threshold exceedance).
@@ -198,8 +189,7 @@ class SplitAndStandardize:
         data_apr=data_apr.close()
         data_may=data_may.close()
         return data
-    
-        
+
     def open_below_threshold(self):
         
         """Open and concat files for six months of analysis (threshold non-exceedance).
@@ -229,7 +219,6 @@ class SplitAndStandardize:
         data_may=data_may.close()
         return data
 
-        
     def grab_variables(self, data):
         
         """Eagerly load variable data. This function converts dask arrays into numpy arrays.
@@ -250,8 +239,7 @@ class SplitAndStandardize:
         if self.single:
             data_1=data[self.choice_var1].values
             return data_1
-        
-        
+
     def create_traintest_data(self, data_b, data_a, return_label=False):
         
         """This function performs balancing of above and below threshold data for training and testing data. Data is permuted 
@@ -274,37 +262,37 @@ class SplitAndStandardize:
             
         """
         if self.validation:
-            #validation above
+            # validation above
             np.random.seed(0)
             select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*0.1)]
             valid_above=data_a[select_data]
             data_a=np.delete(data_a, select_data, axis=0)
-            #validation below
+            # validation below
             np.random.seed(0)
             select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*0.1)]
             valid_below=data_b[select_data]
             data_b=np.delete(data_b, select_data, axis=0)
         
-        #train above
+        # train above
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_above=data_a[select_data]
-        #train below
+        # train below
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_below=data_b[select_data]
-        #test above
+        # test above
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
         test_above=data_a[select_data]
-        #generate index for test below
+        # generate index for test below
         indx_below=int((((data_a.shape[0]*(1-self.percent_split))*data_b.shape[0])/data_a.shape[0])+(data_a.shape[0]*(1-self.percent_split)))
-        #test below
+        # test below
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[int(data_a.shape[0] * self.percent_split):indx_below]
         test_below=data_b[select_data]
         
-        #merge above and below data in prep to shuffle/permute
+        # merge above and below data in prep to shuffle/permute
         if self.validation:
             valid_data=np.vstack([valid_above, valid_below])
             if return_label:
@@ -322,7 +310,7 @@ class SplitAndStandardize:
             test_below_label=np.zeros(test_below.shape[0])
             test_label=np.hstack([test_above_label, test_below_label])
         
-        #finally, permute the data that has been merged and properly balanced
+        # finally, permute the data that has been merged and properly balanced
         if self.validation:
             np.random.seed(10)
             valid_data=np.random.permutation(valid_data)
@@ -349,8 +337,7 @@ class SplitAndStandardize:
                 return train_data, test_data, train_label, test_label, valid_data, valid_label
             if not self.validation:
                 return train_data, test_data, train_label, test_label
-        
-        
+
     def create_traintest_unbalanced(self, data_b, data_a, return_label=False):
         
         """This function performs creates and permutes training and testing data.
@@ -366,35 +353,35 @@ class SplitAndStandardize:
             
         """
         if self.validation:
-            #validation above
+            # validation above
             np.random.seed(0)
             select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*0.1)]
             valid_above=data_a[select_data]
             data_a=np.delete(data_a, select_data, axis=0)
-            #validation below
+            # validation below
             np.random.seed(0)
             select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*0.1)]
             valid_below=data_b[select_data]
             data_b=np.delete(data_b, select_data, axis=0)
         
-        #train above
+        # train above
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_above=data_a[select_data]
-        #train below
+        # train below
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*self.percent_split)]
         train_below=data_b[select_data]
-        #test above
+        # test above
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
         test_above=data_a[select_data]
-        #test below
+        # test below
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[int(data_b.shape[0]*self.percent_split):]
         test_below=data_b[select_data]
         
-        #merge above and below data in prep to shuffle/permute
+        # merge above and below data in prep to shuffle/permute
         if self.validation:
             valid_data=np.vstack([valid_above, valid_below])
             if return_label:
@@ -412,7 +399,7 @@ class SplitAndStandardize:
             test_below_label=np.zeros(test_below.shape[0])
             test_label=np.hstack([test_above_label, test_below_label])
             
-        #finally, permute the data that has been merged and properly balanced
+        # finally, permute the data that has been merged and properly balanced
         if self.validation:
             np.random.seed(10)
             valid_data=np.random.permutation(valid_data)
@@ -439,8 +426,7 @@ class SplitAndStandardize:
                 return train_data, test_data, train_label, test_label, valid_data, valid_label
             if not self.validation:
                 return train_data, test_data, train_label, test_label
-            
-    
+
     def minmax_scale_apply(self, data):
         
         """Min-max standardization of the training data.
@@ -456,8 +442,7 @@ class SplitAndStandardize:
         scaler=MinMaxScaler(feature_range=(0, 1))
         scaler.fit(data)
         return scaler.transform(data)
-    
-    
+
     def minmax_scale_apply_test(self, train, test):
         
         """Min-max standardization of the testing data using training data minimum and maximum values.
@@ -475,7 +460,6 @@ class SplitAndStandardize:
         scaler.fit(train)
         return scaler.transform(test)
 
-
     def standardize_scale_apply(self, data):
         
         """Z-score standardization of the training data.
@@ -490,7 +474,6 @@ class SplitAndStandardize:
         if self.variable=="UH03":
             data[np.isinf(data)]=0.0
         return np.divide((data - np.nanmean(data)), np.nanstd(data))
-
 
     def standardize_scale_apply_test(self, train, test):
         
@@ -509,7 +492,6 @@ class SplitAndStandardize:
             test[np.isinf(test)]=0.0
         return np.divide((test - np.nanmean(train)), np.nanstd(train))
 
-        
     def split_data_to_traintest(self, below1=None, below2=None, below3=None, below4=None, above1=None, above2=None, above3=None, above4=None):
         
         """Function that applies ``create_traintest_data()`` to various variables.
@@ -575,7 +557,6 @@ class SplitAndStandardize:
                 if self.validation:
                     train1, test1, train_label, test_label, valid_data1, valid_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
                     return train1, test1, train_label, test_label, valid_data1, valid_label
-        
 
     def standardize_training(self, func, data1, data2=None, data3=None, data4=None):
         
@@ -600,8 +581,7 @@ class SplitAndStandardize:
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
         if self.single:
             return data_scaled1
-        
-    
+
     def standardize_testing(self, func, train1=None, train2=None, train3=None, train4=None, 
                                         test1=None, test2=None, test3=None, test4=None):
         
@@ -631,7 +611,6 @@ class SplitAndStandardize:
         if self.single:
             return data1
 
-
     def stack_the_data(self, data1, data2, data3, data4):
         
         """Stack the numpy arrays before assembling final xarray netcdf file for saving.
@@ -649,8 +628,7 @@ class SplitAndStandardize:
         if not self.single:
             totaldata=np.stack([data1, data2, data3, data4])
             return totaldata
-    
-    
+
     def return_train_mean_and_std(self, traindata1, traindata2=None, traindata3=None, traindata4=None):
         
         """Extract mean and std data to record statistical distributions prior to standardization.
@@ -672,7 +650,6 @@ class SplitAndStandardize:
                    np.array([np.nanstd(traindata1), np.nanstd(traindata2), np.nanstd(traindata3), np.nanstd(traindata4)])
         if self.single:
             return np.nanmean(traindata1), np.nanstd(traindata1)
-        
 
     def save_data(self, train_data, train_label, test_data, test_label, train_mean, train_std, valid_data=None, valid_label=None):
         
@@ -775,7 +752,6 @@ class SplitAndStandardize:
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
                 print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")                
 
-    
     def run_sequence(self):
         
         """Function that runs through the sequence of steps in data preprocessing for deep learning model training and testing data creation.
@@ -861,4 +837,3 @@ class SplitAndStandardize:
         if self.validation:
             self.save_data(Xtrain, train_label, Xtest, test_label, train_mean, train_std, Xvalid, valid_label) 
         Xtrain=None; Xtest=None; train_label=None; test_label=None; train_mean=None; train_std=None
-        
