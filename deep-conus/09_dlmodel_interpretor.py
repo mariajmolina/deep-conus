@@ -30,19 +30,21 @@ class InterpretDLModel:
                         ``W1``, ``W3``, ``W5``, ``W7``,
                         ``P1``, ``P3``, ``P5``, ``P7``,
                         ``WMAX``, ``DBZ``,``CTT``,``UH25``, and``UH03``.
-        working_directory (str): The directory path to where the produced files will be saved and worked from.
-        var_directory (str): Directory where the test subset variable data is saved.
+        dist_directory (str): The directory path where the produced files were saved.
         model_directory (str): Directory where the deep learning model is saved.
         model_num (str): The number of the model as it was saved.
-        eval_directory (str): Directory where evaluation files will be saved.
-        
+        comp_directory (str): Directory where the composite files were saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
+        mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
+        isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
-        month_choice (int): Month for analysis. Defaults to ``None``.
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
-        year_choice (int): Year for analysis. Defaults to ``None``.
-        obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
-        
+        month_choice (int): Month for analysis. Defaults to ``None``. Todo...
+        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``. Todo...
+        year_choice (int): Year for analysis. Defaults to ``None``. Todo...
+        outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
+
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
@@ -54,7 +56,7 @@ class InterpretDLModel:
 
     def __init__(self, climate, method, variable, dist_directory, model_directory, model_num, comp_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -65,29 +67,25 @@ class InterpretDLModel:
             raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
         else:
             self.method=method
-            
         self.variable=variable
         self.dist_directory=dist_directory
         self.model_directory=model_directory
         self.model_num=model_num
         self.comp_directory=comp_directory
-        
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
-    
         self.mask_train=mask_train
         self.unbalanced=unbalanced
         self.validation=validation
         self.isotonic=isotonic
-        
         self.random_choice=random_choice
         self.month_choice=month_choice 
         self.season_choice=season_choice 
         self.year_choice=year_choice
-    
+        self.outliers = outliers
     
     def variable_translate(self):
         
@@ -120,8 +118,7 @@ class InterpretDLModel:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable with height AGL appended (1, 3, 5, or 7).")
-            
-            
+
     def convert_string_height(self):
         
         """Convert the string variable name's height to integer for indexing mean and standard deviation data.
@@ -131,11 +128,10 @@ class InterpretDLModel:
         heights=np.array([1,3,5,7])
         the_indx=np.where(heights==the_hgt)
         return the_indx     
-    
-    
+
     def extract_variable_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for the selected variable.
         
         """
         if not self.unbalanced:
@@ -154,11 +150,10 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
 f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.variable_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.variable_std=data.train_std.values[self.convert_string_height()[0][0]]
-        
-        
+
     def extract_eu_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for u winds (earth relative).
         
         """
         if not self.unbalanced:
@@ -174,11 +169,10 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.eu_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.eu_std=data.train_std.values[self.convert_string_height()[0][0]]
-        
-        
+
     def extract_ev_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for v winds (earth relative).
         
         """
         if not self.unbalanced:
@@ -194,11 +188,10 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
-        
-        
+
     def extract_uh03_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for UH (0-3 km AGL).
         
         """
         if not self.unbalanced:
@@ -214,11 +207,10 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.uh03_mean=data['train_mean'].values[0]
         self.uh03_std=data['train_std'].values[0]
-        
-        
+
     def extract_uh25_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for UH (2-5 km AGL).
         
         """
         if not self.unbalanced:
@@ -234,11 +226,10 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.uh25_mean=data['train_mean'].values[0]
         self.uh25_std=data['train_std'].values[0]
-    
-    
+
     def extract_dbz_mean_and_std(self):
         
-        """Open the file containing mean and std information for the variable.
+        """Open the file containing mean and std information for dBZ (simulated reflectivity).
         
         """
         if not self.unbalanced:
@@ -254,37 +245,37 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                     f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         self.dbz_mean=data['train_mean'].values[0]
         self.dbz_std=data['train_std'].values[0]
-    
-    
+
     def extract_model(self):
         
-        """Load the DL model from h5 data set.
+        """Load the keras model from h5 data set.
         
         """
         loaded_model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
         print(loaded_model.summary())
         return loaded_model
-    
-    
+
     def extract_variable_and_dbz(self):
         
         """Open the file containing the test data.
         
         """
-        return xr.open_dataset(f'{self.comp_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
-    
-    
+        if not self.outliers:
+            ds = xr.open_dataset(f'{self.comp_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        if self.outliers:
+            ds = xr.open_dataset(f'{self.comp_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        return ds
+
     def extract_variable_index(self, data):
     
         """Find the variable index from the respective test data set.
         
         Args:
-            data: Dataset opened with ``extract_variable_and_dbz()``.
+            data (xarray dataset): Dataset opened with ``extract_variable_and_dbz()``.
         
         """
         return np.where(data.coords['features'].values==self.variable)[0][0]
-        
-        
+
     def extract_dbz_index(self, data):
     
         """Find the ``DBZ`` index from the respective test data set.
@@ -294,8 +285,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         return np.where(data.coords['features'].values=='DBZ')[0][0]
-    
-    
+
     def extract_uh03_index(self, data):
     
         """Find the ``UH03`` index from the respective test data set.
@@ -305,8 +295,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         return np.where(data.coords['features'].values=='UH03')[0][0]
-    
-    
+
     def extract_uh25_index(self, data):
     
         """Find the ``UH25`` index from the respective test data set.
@@ -316,8 +305,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         return np.where(data.coords['features'].values=='UH25')[0][0]
-    
-    
+
     def extract_EV_index(self, data):
     
         """Find the ``EV`` (v-wind) index from the respective test data set for the corresponding variable height.
@@ -327,8 +315,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         return np.where(data.coords['features'].values=='EV'+self.variable[-1])[0][0]
-    
-    
+
     def extract_EU_index(self, data):
     
         """Find the ``EU`` (u-wind) index from the respective test data set for the corresponding variable height.
@@ -338,8 +325,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         return np.where(data.coords['features'].values=='EU'+self.variable[-1])[0][0]
-    
-    
+
     def preview_dbz(self, composite_group, input_index, test_data):
         
         """Preview the testing data ``DBZ`` values to help choose the example for ``saliency_preview``.
@@ -350,21 +336,17 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                                    ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
                                    true negative < 1% probability ``tn_01``.
             input_index (int): The example's index to preview.
-            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
             test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
         
         """
         levels=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80]
         cmap = colortables.get_colortable('NWSReflectivity')
-        return xr.plot.contourf(test_data[composite_group][input_index, :, :, test.extract_dbz_index(testdata)] * test.dbz_std + test.dbz_mean, 
+        return xr.plot.contourf(test_data[composite_group][input_index, :, :, test.extract_dbz_index(test_data)] * test.dbz_std + test.dbz_mean, 
                                 cmap=cmap, levels=levels)
-    
-    
+
     def preview_uh25(self, composite_group, input_index, test_data):
         
-        """Preview the testing data ``DBZ`` values to help choose the example for ``saliency_preview``.
+        """Preview the testing data ``UH 2-5 km`` values to help choose the example for ``saliency_preview``.
         
         Args:
             composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
@@ -372,18 +354,15 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                                    ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
                                    true negative < 1% probability ``tn_01``.
             input_index (int): The example's index to preview.
-            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
             test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
         
         """
         cmap = plt.cm.get_cmap("Reds")
+        print(np.nanmax(test_data[composite_group][input_index, :, :, test.extract_uh25_index(test_data)] * test.uh25_std + test.uh25_mean))
         return xr.plot.pcolormesh(
-            test_data[composite_group][input_index, :, :, test.extract_uh25_index(testdata)] * test.uh25_std + test.uh25_mean, 
-                                cmap=cmap, vmin=-75, vmax=75)
-    
-    
+            test_data[composite_group][input_index, :, :, test.extract_uh25_index(test_data)] * test.uh25_std + test.uh25_mean, 
+                                       cmap=cmap, vmin=-75, vmax=75)
+
     def grab_dbz(self, composite_group, input_index, test_data):
         
         """Grab the testing data ``DBZ`` values to help choose the example for ``saliency_preview``.
@@ -394,15 +373,11 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                                    ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
                                    true negative < 1% probability ``tn_01``.
             input_index (int): The example's index to preview.
-            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
             test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
         
         """
-        return test_data[composite_group][input_index, :, :, test.extract_dbz_index(testdata)] * test.dbz_std + test.dbz_mean
-    
-    
+        return test_data[composite_group][input_index, :, :, test.extract_dbz_index(test_data)] * test.dbz_std + test.dbz_mean
+
     def preview_saliency(self, composite_group, input_index, dl_model, test_data):
         
         """Preview the deep learning model input using saliency maps.
@@ -415,11 +390,6 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             input_index (int): The example's index to to preview.
             dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
             test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
-            vmin (int): Minimum value for ``pcolormesh`` plot.
-            vmax (int): Maximum value for ``pcolormesh`` plot.
-            cmap (str): Matplotlib colorbar name for visualization.
         
         """
         testdata=test_data[composite_group]
@@ -452,8 +422,7 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             ax.text(16, 16, conv_filter, fontsize=14)
         plt.suptitle("Final Convolution Filter Saliency Maps", fontsize=14, y=0.98)
         plt.show()
-    
-    
+
     def save_saliency_maps(self, composite_group, input_index, dl_model, test_data):
         
         """Save the features using chosen indices to generate final images using the next module.
@@ -463,7 +432,9 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
                                    true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
                                    ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
                                    true negative < 1% probability ``tn_01``.
-            indices (int): Numpy array of chosen indices.
+            input_index (int): Index of sample to generate saliency maps for.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
         
         """
         testdata=test_data[composite_group]
@@ -495,25 +466,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         data.to_netcdf(
             f"{self.comp_directory}/saliency_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{composite_group}_{str(input_index)}_{self.variable}.nc")
         return
-        
-        
+
     def auto_saliency(self, data):
         
-        """Preview the deep learning model input using saliency maps.
+        """Preview the saved saliency maps.
         
         Args:
-            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
-                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
-                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
-                                   true negative < 1% probability ``tn_01``.
-            input_index (int): The example's index to to preview.
-            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
-            test_data (numpy array): The test data to use for saliency map generation.
-            train_mean (float): The mean of the chosen variable to reverse standardization.
-            train_std (float): The standard deviation of the chosen variable to reverse standardization.
-            vmin (int): Minimum value for ``pcolormesh`` plot.
-            vmax (int): Maximum value for ``pcolormesh`` plot.
-            cmap (str): Matplotlib colorbar name for visualization.
+            data (xarray dataset): Saliency map opened netCDF file. 
         
         """
         sm_data=data.saliency_maps

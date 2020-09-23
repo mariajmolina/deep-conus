@@ -40,50 +40,44 @@ class StudyVisualizer:
         month_choice (int): Month for analysis. Defaults to ``None``.
         season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
         year_choice (int): Year for analysis. Defaults to ``None``.
-        obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
+        outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     Todo:
         * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        * Add evaluation of UH25 and UH03 for failure cases.
-        * Add binning for heatmap.
         
     """
 
     def __init__(self, climate, method, variable1, dist_directory, model_directory, model_num, comp_directory, 
                  variable2=None, mask=False, 
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None):
+                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
-        
         if method!='random' and method!='month' and method!='season' and method!='year':
             raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
         else:
             self.method=method
-            
         self.variable1=variable1
         self.variable2=variable2
         self.dist_directory=dist_directory
         self.model_directory=model_directory
         self.model_num=model_num
         self.comp_directory=comp_directory
-        
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
-    
         self.random_choice=random_choice
         self.month_choice=month_choice 
         self.season_choice=season_choice 
         self.year_choice=year_choice
-    
+        self.outliers=outliers
     
     def variable_translate(self, variable):
         
@@ -117,8 +111,7 @@ class StudyVisualizer:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable with height AGL appended (1, 3, 5, or 7).")
-            
-            
+
     def convert_string_height(self, variable):
         
         """Convert the string variable name's height to integer for indexing mean and standard deviation data.
@@ -129,8 +122,7 @@ class StudyVisualizer:
             heights=np.array([1,3,5,7])
             the_indx=np.where(heights==the_hgt)
             return the_indx
-    
-    
+
     def extract_variable_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
@@ -150,8 +142,7 @@ class StudyVisualizer:
         if data.features.size==1:
             self.variable2_mean=data.train_mean.values[0]
             self.variable2_std=data.train_std.values[0]            
-        
-        
+
     def extract_eu_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
@@ -160,8 +151,7 @@ class StudyVisualizer:
         data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
         self.eu_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
         self.eu_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
-        
-        
+
     def extract_ev_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
@@ -170,8 +160,7 @@ class StudyVisualizer:
         data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
         self.ev_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
         self.ev_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
-    
-    
+
     def extract_dbz_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
@@ -180,8 +169,7 @@ class StudyVisualizer:
         data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist.nc")
         self.dbz_mean=data['train_mean'].values[0]
         self.dbz_std=data['train_std'].values[0]
-    
-    
+
     def extract_model(self):
         
         """Load the DL model from h5 data set.
@@ -190,16 +178,19 @@ class StudyVisualizer:
         loaded_model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
         print(loaded_model.summary())
         return loaded_model
-    
-    
+
     def extract_variable_and_dbz(self):
         
         """Open the file containing the test data.
         
         """
-        return xr.open_dataset(f'{self.comp_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
-    
-    
+        if not self.outliers:
+            return xr.open_dataset(
+                f'{self.comp_directory}/composite_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+        if self.outliers:
+            return xr.open_dataset(
+                f'{self.comp_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+
     def extract_variable1_index(self, data):
     
         """Find the variable index from the respective test data set.
@@ -209,8 +200,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values==self.variable1)[0][0]
-    
-    
+
     def extract_variable2_index(self, data):
     
         """Find the variable index from the respective test data set.
@@ -220,8 +210,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values==self.variable2)[0][0]
-        
-        
+
     def extract_dbz_index(self, data):
     
         """Find the ``DBZ`` index from the respective test data set.
@@ -231,8 +220,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='DBZ')[0][0]
-    
-    
+
     def extract_mask_index(self, data):
     
         """Find the ``DBZ`` index from the respective test data set.
@@ -242,8 +230,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='MASK')[0][0]
-    
-    
+
     def extract_EV_index(self, data):
     
         """Find the ``EV`` (v-wind) index from the respective test data set for the corresponding variable height.
@@ -253,8 +240,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='EV'+self.variable1[-1])[0][0], np.where(data.coords['features'].values=='EV'+self.variable2[-1])[0][0]
-    
-    
+
     def extract_EU_index(self, data):
     
         """Find the ``EU`` (u-wind) index from the respective test data set for the corresponding variable height.
@@ -264,8 +250,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='EU'+self.variable1[-1])[0][0], np.where(data.coords['features'].values=='EU'+self.variable2[-1])[0][0]
-    
-    
+
     def extract_QVAPOR_index(self, data):
     
         """Find the ``QVAPOR`` (water vapor mixing ratio) index from the respective test data set for the corresponding variable height.
@@ -275,8 +260,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='QVAPOR'+self.variable1[-1])[0][0], np.where(data.coords['features'].values=='QVAPOR'+self.variable2[-1])[0][0]
-    
-    
+
     def extract_TK_index(self, data):
     
         """Find the ``TK`` (temperature) index from the respective test data set for the corresponding variable height.
@@ -286,8 +270,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='TK'+self.variable1[-1])[0][0], np.where(data.coords['features'].values=='TK'+self.variable2[-1])[0][0]
-    
-    
+
     def extract_P_index(self, data):
     
         """Find the ``P`` (pressure) index from the respective test data set for the corresponding variable height.
@@ -297,8 +280,7 @@ class StudyVisualizer:
         
         """
         return np.where(data.coords['features'].values=='P'+self.variable1[-1])[0][0], np.where(data.coords['features'].values=='P'+self.variable2[-1])[0][0]
-    
-    
+
     def grab_value_of_storm(self, data, group_choice):
         
         """Grab the maximum variable data within the storm object.
@@ -323,8 +305,7 @@ class StudyVisualizer:
         max_variable1=max_variable1 * self.variable1_std + self.variable1_mean
         max_variable2=max_variable2 * self.variable2_std + self.variable2_mean
         return max_variable1, max_variable2
-    
-    
+
     def plot_two_var_scatter(self, data, composite_list, composite_colors, marker_sizes, markers, fillstyles):
         
         """Plot two variables on a scatter plot for data exploration.
@@ -344,8 +325,7 @@ class StudyVisualizer:
             plt.scatter(self.grab_value_of_storm(data, group_choice=comp_type)[0], self.grab_value_of_storm(data, group_choice=comp_type)[1], 
                         c=comp_color, s=mark_size, marker=mark, facecolors=fillsty)
         return plt.show()
-    
-    
+
     def compute_wind_shear(self, current_data, future_data, comp_str):
         
         """Computation of wind shear.
@@ -390,8 +370,7 @@ class StudyVisualizer:
         future_v_total = (future_v_wind2 * future_ev2_std + future_ev2_mean) - (future_v_wind1  * future_ev1_std + future_ev1_mean)
         future_wind = np.sqrt(future_u_total**2 + future_v_total**2)
         return current_wind, future_wind
-    
-    
+
 def plot_current_and_future(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
     
     """Plot current and future variable data for a select composite type.
@@ -413,38 +392,3 @@ def plot_current_and_future(current_data, future_data, markersize, marker, facec
     if ylabel:
         plt.ylabel(ylabel)
     return plt.show()
-
-
-
-#def annotate_current_and_future_indices(current_data, future_data, markersize, marker, facecolor, color=['b','r'], xlabel=None, ylabel=None):
-    
-#    """Plot current and future variable data for a select composite type.
-    
-#    Args: 
-#        current_data (xarray dataset): Current climate data. (self.grab_value_of_storm(data, group_choice=comp_type))
-#        future_data (xarray dataset): Future climate data. (self.grab_value_of_storm(future_data, group_choice=comp_type))
-#        composite_type (str): The 2x2 contingency table option for visualizing (e.g., ``tn``, ``tp``, ``fn``, and ``fp``.)
-#        color (str): List of two corresponding colors for plotting the scatters. Defaults to ``b`` and ``r``.
-#        marker_sizes (int): Size of the marker.
-#        markers (str): Type of marker for the plot (e.g., .,,,o,v,^,<,>,*,h,H,+,x,X,D,d,|,_).
-#        fillstyles (str): Whether to fill or not fill the facecolor. Options include ``none`` and ``full``.        
-    
-#    """
-#    fig=plt.figure(figsize=(8,8), dpi=200, facecolor='w', edgecolor='k')
-#    for i, txt in enumerate(range(0,current_data[0].shape[0])):
-#        plt.annotate(txt, (current_data[0][i], current_data[1][i]), horizontalalignment='left', verticalalignment='center', 
-#                     rotation=0, color=color[0], fontsize=12, zorder=2)
-#        
-#    for i, txt in enumerate(range(0,future_data[0].shape[0])):
-#        plt.annotate(txt, (future_data[0][i], future_data[1][i]), horizontalalignment='left', verticalalignment='center', 
-#                     rotation=0, color=color[0], fontsize=12, zorder=2)
-#    
-#    if xlabel:
-#        plt.xlabel(xlabel)
-#    if ylabel:
-#        plt.ylabel(ylabel)
-#        
-#    plt.savefig(f'/glade/work/molina/DATA/temp_figs/testing.png', bbox_inches='tight', pad_inches=0.075, dpi=200)
-#    return
-    
-    
