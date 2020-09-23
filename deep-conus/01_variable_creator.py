@@ -16,7 +16,8 @@ class ComputeVariable:
         year_start (int): Start year for the respective variable calculation.
         year_end (int): End year for the respective variable calculation.
         destination (str): Directory path of where to save the calculated variable.
-        rda_path (str): Directory path of where the data files are saved. Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/``.
+        rda_path (str): Directory path of where the data files are saved. 
+                        Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/`` for WRF files on NCAR Research Data Archive.
         start_dask (boolean): Whether to launch dask workers or not. Defaults to ``True``.
         project_code (str): The supercomputer account charge code. Defaults to ``None``.
         cluster_min (str): The minimum number of nodes to initiate for adaptive dask job. Defaults to 10. Each node contains 36 CPUs on Cheyenne.
@@ -232,7 +233,7 @@ class ComputeVariable:
                     data_zstag=data_zstag.close()
                     data_mapfc=data_mapfc.close()
                     data_sstag=data_sstag.close()
-                    print(f"woohoo! {yr} {mo} complete for CAPE")
+                    print(f"{yr} {mo} complete for CAPE")
 
                 if self.variable == 'CTT':
                     print(f"opening {yr} {mo} files for ctt")
@@ -251,7 +252,7 @@ class ComputeVariable:
                     data_zstag=data_zstag.close()
                     data_mapfc=data_mapfc.close()
                     data_icestag=data_icestag.close()
-                    print(f"woohoo! {yr} {mo} complete for CTT")
+                    print(f"{yr} {mo} complete for CTT")
 
                 if self.variable == 'UH':
                     print(f"opening {yr} {mo}...")
@@ -268,7 +269,7 @@ class ComputeVariable:
                     data_ustag=data_ustag.close()
                     data_vstag=data_vstag.close()
                     data_wstag=data_wstag.close()           
-                    print(f"woohoo! {yr} {mo} complete")
+                    print(f"{yr} {mo} complete")
 
 
 def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag):
@@ -445,4 +446,3 @@ def apply_wrf_UH(data_zstag, data_mapfc, data_ustag, data_vstag, data_wstag, dx,
                                            [None], [None], [None], [None]],
                           output_sizes=dict(south_north=1015,west_east=1359),
                           output_core_dims=[['south_north','west_east']])
-
