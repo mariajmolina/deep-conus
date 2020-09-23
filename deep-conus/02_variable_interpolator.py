@@ -16,7 +16,8 @@ class InterpolateVariable:
         year_start (int): Start year for the respective interpolation operation.
         year_end (int): End year for the respective interpolation operation.
         destination (str): Directory path of where to save the interpolated variable.
-        rda_path (str): Directory path of where the data files are saved. Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/``.
+        rda_path (str): Directory path of where the data files are saved. 
+                        Defaults to ``/gpfs/fs1/collections/rda/data/ds612.0/`` for WRF files on NCAR Research Data Archive.
         start_dask (boolean): Whether to launch dask workers or not. Defaults to ``True``.
         project_code (str): The supercomputer account charge code. Defaults to ``None``.
         cluster_min (str): The minimum number of nodes to initiate for adaptive dask job. Defaults to 10. Each node contains 36 CPUs on Cheyenne.
@@ -183,7 +184,7 @@ class InterpolateVariable:
                 r=r.close()
                 data_AGL=data_AGL.close()
                 data_var=data_var.close()
-                print(f"woohoo! {yr} {mo} complete")
+                print(f"{yr} {mo} complete")
 
 
     def create_the_max_files(self):
@@ -209,7 +210,7 @@ class InterpolateVariable:
                 r.to_dataset(name='max_in_vert').to_netcdf(f"/{self.destination}/wrf2d_max_{self.variable}_{yr}{mo}.nc")
                 r=r.close()
                 data_var=data_var.close()
-                print(f"woohoo! {yr} {mo} complete")
+                print(f"{yr} {mo} complete")
 
 
 def wrf_interp(data_AGL, data_var):
@@ -272,4 +273,3 @@ def apply_wrf_interp_W(data_AGL, data_var):
                                            ['bottom_top_stag','south_north','west_east']],
                           output_sizes=dict(level=4, south_north=1015, west_east=1359),
                           output_core_dims=[['level','south_north','west_east']])
-
