@@ -35,24 +35,20 @@ class CreateEvaluationData:
             raise Exception("Please enter current or future as string for climate period selection.")
         else:
             self.climate=climate
-            
         if method!='random' and method!='month' and method!='season' and method!='year':
             raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
         else:
             self.method=method
-            
         self.variables=variables
         self.directory=directory
         self.unbalanced=unbalanced
         self.validation=validation
-        
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
-        
-        
+
     def add_dbz(self):
         
         """Function that adds ``DBZ`` variable to variable list if not already contained.
@@ -60,8 +56,7 @@ class CreateEvaluationData:
         """
         if not np.isin('DBZ', self.variables):
             self.variables=np.append(self.variables, 'DBZ')
-            
-            
+
     def add_uh25(self):
         
         """Function that adds ``UH25`` variable to variable list if not already contained.
@@ -69,8 +64,7 @@ class CreateEvaluationData:
         """
         if not np.isin('UH25', self.variables):
             self.variables=np.append(self.variables, 'UH25')
-            
-            
+
     def add_uh03(self):
         
         """Function that adds ``UH03`` variable to variable list if not already contained.
@@ -78,24 +72,21 @@ class CreateEvaluationData:
         """
         if not np.isin('UH03', self.variables):
             self.variables=np.append(self.variables, 'UH03')
-            
-            
+
     def add_wmax(self):
         
         """Function that adds ``WMAX`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'WMAX')
-        
-        
+
     def add_ctt(self):
         
         """Function that adds ``CTT`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'CTT')
-            
-            
+
     def add_mask(self):
         
         """Function that adds ``UH03`` variable to variable list if not already contained.
@@ -103,8 +94,7 @@ class CreateEvaluationData:
         """
         if not np.isin('MASK', self.variables):
             self.variables=np.append(self.variables, 'MASK')
-    
-        
+
     def variable_translate(self, variable):
         
         """Variable name for the respective filenames.
@@ -139,7 +129,6 @@ class CreateEvaluationData:
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MAXW``, ``CTT``, ``MASK``, or ``DBZ`` as variable.")
 
-            
     def open_files_and_run_method(self):
 
         """Open the testing data files and apply the respective parsing method to create the test subset.
@@ -180,8 +169,7 @@ class CreateEvaluationData:
             if self.method=='year':
                 self.year_method(data, var)
         return
-    
-    
+
     def random_method(self, data, variable):
         
         """Randomizes and parses the test data into 6 groups, saving each individually to avoid memory issues during evaluation.
@@ -219,8 +207,7 @@ class CreateEvaluationData:
         data_assemble=data_assemble.close()
         data=data.close()
         return
-    
-    
+
     def month_translate(self):
         
         """Convert integer month to string month.
@@ -243,9 +230,8 @@ class CreateEvaluationData:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
-            
-    
-    def month_method(self, data, variable):
+
+    def month_method(self, data, variable):  # To do
         
         """Parses the test data into monthly groups, saving each individually to avoid memory issues during evaluation.
         
@@ -255,9 +241,8 @@ class CreateEvaluationData:
         
         """
         return
-    
-    
-    def season_method(self, data, variable):
+
+    def season_method(self, data, variable):  # To do
         
         """Parses the test data into seasonal groups, saving each individually to avoid memory issues during evaluation.
         
@@ -267,9 +252,8 @@ class CreateEvaluationData:
         
         """
         return
-    
-    
-    def year_method(self, data, variable):
+
+    def year_method(self, data, variable):  # To do
         
         """Parses the test data into yearly groups, saving each individually to avoid memory issues during evaluation.
         
@@ -279,4 +263,3 @@ class CreateEvaluationData:
         
         """
         return
-    
