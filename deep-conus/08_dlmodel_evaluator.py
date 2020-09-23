@@ -33,20 +33,21 @@ class EvaluateDLModel:
         isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         bin_res (float): Bin resolution for the reliability curve. Defaults to ``0.05``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
-        month_choice (int): Month for analysis. Defaults to ``None``.
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
-        year_choice (int): Year for analysis. Defaults to ``None``.
+        month_choice (int): Month for analysis. Defaults to ``None``. Todo...
+        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``. Todo...
+        year_choice (int): Year for analysis. Defaults to ``None``. Todo...
         obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
-        print_sequential (boolean): Whether the sequential function calls to save files will output status statements.
-                                    Defaults to ``True``.
+        print_sequential (boolean): Whether the sequential function calls to save files will output status statements. Defaults to ``True``.
         perm_feat_importance (boolean): Whether to compute permutation feature importance. One variable will be permuted at a time. Defaults to ``False``.
         pfi_variable (int): The variable to permute for permutation feature importance. Defaults to ``None``.
         pfi_iterations (int): The number of sets to run to compute confidence intervals for subsequent significance testing of permutation
                               feature importance. Defaults to ``None``.
         bootstrap (boolean): Whether to compute a bootstrap of metrics. Defaults to ``False``.
-        boot_iterations (int): Number of bootstrap samples. Defaults to ``100,000``.
+        boot_iterations (int): Number of bootstrap samples. Defaults to ``1,000``.
         seed_indexer(int): Feature to help resume runs from mid-point locations of uncertainty quantification. Defaults to ``1``. 
-                           Recommended usage at 1,000 intervals to prevent excessive multiprocessing runtime.
+                           Recommended usage at 100 intervals to prevent excessive multiprocessing runtime.
+        outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
+        upper_perc (int): The upper percentile value to use for computing outliers. Defaults to ``99`` for 99th percentile.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
@@ -108,8 +109,7 @@ class EvaluateDLModel:
         self.seed_indexer=seed_indexer
         self.outliers=outliers
         self.upper_perc=upper_perc
-        
-    
+
     def month_translate(self):
         
         """Convert integer month to string month.
@@ -132,7 +132,6 @@ class EvaluateDLModel:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
-
 
     def variable_translate(self, variable):
 
@@ -168,14 +167,12 @@ class EvaluateDLModel:
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``MASK``, ``UH03``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
 
-
     def add_dbz(self):
         
         """Function that adds ``DBZ`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'DBZ')
-
 
     def add_uh25(self):
         
@@ -184,14 +181,12 @@ class EvaluateDLModel:
         """
         self.variables=np.append(self.variables, 'UH25')
 
-
     def add_uh03(self):
         
         """Function that adds ``UH03`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'UH03')
-
 
     def add_wmax(self):
         
@@ -200,7 +195,6 @@ class EvaluateDLModel:
         """
         self.variables=np.append(self.variables, 'WMAX')
 
-
     def add_ctt(self):
         
         """Function that adds ``CTT`` variable to last dim of test data array.
@@ -208,15 +202,13 @@ class EvaluateDLModel:
         """
         self.variables=np.append(self.variables, 'CTT')
         
-        
     def add_mask(self):
         
         """Function that adds ``MASK`` variable to last dim of test data array.
         
         """
         self.variables=np.append(self.variables, 'MASK')
-            
-            
+
     def open_test_files(self):
 
         """Open the subset test data files.
@@ -247,7 +239,7 @@ class EvaluateDLModel:
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
                     if self.validation:
                         the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')                        
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')          
         if self.method=='month':
             for var in self.variables:
                 var   ##TODO 
@@ -258,8 +250,7 @@ class EvaluateDLModel:
             for var in self.variables:
                 var   ##TODO 
         return the_data
-    
-    
+
     def open_qv_files(self):
 
         """Open the subset test data files.
@@ -285,7 +276,6 @@ class EvaluateDLModel:
                     if self.validation:
                         the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')  
-                        
         if self.method=='month':
             for var in self.variables:
                 var   ##TODO 
@@ -296,8 +286,7 @@ class EvaluateDLModel:
             for var in self.variables:
                 var   ##TODO 
         return the_data
-    
-    
+
     def save_qv_files(self):
 
         """Generate QVAPOR upper percentile file for testing outliers.
@@ -350,8 +339,7 @@ class EvaluateDLModel:
             data.to_netcdf(
                 f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
         return
-    
-    
+
     def load_qv_files(self):
         
         """Load and concatenate the testdata and testlabels.
@@ -377,7 +365,6 @@ class EvaluateDLModel:
         testdata=xr.concat([data1.testdata,data2.testdata,data3.testdata,data4.testdata,data5.testdata],dim='b').values
         labels=xr.concat([data1.testlabels,data2.testlabels,data3.testlabels,data4.testlabels,data5.testlabels],dim='b').values
         return testdata, labels
-    
 
     def assemble_and_concat(self, **kwargs):
         
@@ -403,8 +390,7 @@ class EvaluateDLModel:
             testdata=np.squeeze(np.asarray(list(thedata.values())))
         thedata=None
         return testdata, label
-    
-    
+
     def remove_nans(self, testdata, label):
         
         """Assemble the variables and remove any ``nan`` values from the data. 
@@ -422,18 +408,14 @@ class EvaluateDLModel:
                     },
                     ).dropna(dim='b')
         data.to_netcdf(f'{self.eval_directory}/testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}.nc')
-        
-        
+
     def variable_shuffler(self, test_data, num):
         
         """Shuffle the variable (feature) selected for training in PFI technique.
         
         Args:
+            test_data (numpy array): Test data.
             num (int): Integer input into random seed setter.
-        
-        #For reference, this is the bootstrap version:
-        #random_indxs=np.array([np.random.choice(data[:,:,:,:].shape[0]) for i in range(data[:,:,:,:].shape[0])])
-        #data2[:,:,:,self.variable_to_shuffle]=data[random_indxs,:,:,self.variable_to_shuffle]
         
         """
         np.random.seed(num)
@@ -441,12 +423,13 @@ class EvaluateDLModel:
         new_test_data[:,:,:,self.pfi_variable]=test_data[np.random.permutation(test_data.shape[0]),:,:,self.pfi_variable]
         return new_test_data
     
-    
     def bootstrap_shuffler(self, test_data, test_labels, num):
         
         """Bootstrap the data selected for determining confidence intervals.
         
         Args:
+            test_data (numpy array): Test data.
+            test_labels (numpy array): Test label data.
             num (int): Integer input into random seed setter.
         
         """
@@ -457,7 +440,6 @@ class EvaluateDLModel:
         self.test_labels = test_labels[boot_indx]
         return new_test_data
 
-    
     def isotonic_load(self):
         
         """Load the Isotonic model.
@@ -467,8 +449,7 @@ class EvaluateDLModel:
         with open(pkl_filename, 'rb') as file:
             pickle_model = pickle.load(file)
         return pickle_model
-        
-    
+
     def load_and_predict(self, test_data):
         
         """Load the DL model and generate predictions with the input variable data.
@@ -476,14 +457,16 @@ class EvaluateDLModel:
         Assigns new class attributes, ``model_probability_forecasts`` and ``model_binary_forecasts``, which are 
         the probabilistic and dichotomous predictions from the deep learning model.
         
+        Args:
+            test_data (numpy array): Test data.
+        
         """
         model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
         self.model_probability_forecasts=model.predict(test_data[...,:-6])
         if self.isotonic:
             iso_model=self.isotonic_load()
             self.model_probability_forecasts=iso_model.predict(self.model_probability_forecasts.reshape(-1))
-        
-    
+
     def create_contingency_matrix(self):
         
         """Create the contingency 2x2 matrix using deep learning model binary predictions and test labels.
@@ -491,40 +474,56 @@ class EvaluateDLModel:
         
         """
         self.cont_matrix=contingency_matrix(labels_true=self.test_labels, labels_pred=self.model_binary_forecasts)
-        
-    
+
     def threat_score(self, tp, fp, fn):
 
         """Threat score (Gilbert 1884) or critical success index. The worst score is zero, while the best score is one.
         From Wilks book: "Proportion correct for the quantity being forecast after removing correct no forecasts from consideration".
+            
+        Args:
+            tp: true positives
+            fp: false positives
+            fn: false negatives
             
         Returns:
             Threat score (float).
             
         """
         return np.divide(tp, tp + fp + fn)
-    
 
     def proportion_correct(self, tp, fp, fn, tn):
 
         """Returns: The proportion correct (Finley 1884).
+        
+        Args:
+            tp: true positives
+            fp: false positives
+            fn: false negatives
+            tn: true negatives
             
         """
         return np.divide(tp + tn, tp + fp + fn + tn)
-
 
     def bias(self, tp, fp, fn):
 
         """Returns: The bias ratio. Unbiased = 1, bias > 1 means overforecasting, Bias < 1 means underforecasting.
             
+        Args:
+            tp: true positives
+            fp: false positives
+            fn: false negatives
+            
         """
         return np.divide(tp + fp, tp + fn)
-
 
     def false_alarm_ratio(self, tp, fp):
 
         """False alarm ratio measures the fraction of ``positive`` forecasts that turned out to be wrong (Doswell et al. 1990).
         Best FAR is zero, the worst score is 1.
+        
+        Args:
+            tp: true positives
+            fp: false positives
         
         Returns:
             False alarm ratio (float).
@@ -532,11 +531,14 @@ class EvaluateDLModel:
         """
         return np.divide(fp, tp + fp)
 
-
     def hit_rate(self, tp, fn):
 
         """Also called the probability of detection (POD; Doswell et al. 1990).
         This metric measures the ratio of correct forecasts to the number of times the event occurred.
+            
+        Args:
+            tp: true positives
+            fn: false negatives
             
         Returns:
             Hit rate (float).
@@ -544,19 +546,21 @@ class EvaluateDLModel:
         """
         return np.divide(tp, tp + fn)
 
-
     def false_alarm_rate(self, fp, tn):
 
         """Also known as the probability of false detection (POFD).
         This metric is the ratio of false alarms to the total number of non-occurrences of the event.
+        
+        Args:
+            fp: false positives
+            tn: true negatives
         
         Returns:
             False alarm rate (float).
         
         """
         return np.divide(fp, fp + tn)
-    
-    
+
     def auc_score(self):
         
         """Computation of the AUC score (Area Under the Receiver Operating Characteristic Curve).
@@ -567,7 +571,6 @@ class EvaluateDLModel:
         """
         return roc_auc_score(self.test_labels, np.where(self.model_probability_forecasts>=self.obs_threshold,1,0).reshape(-1))
 
-    
     def assign_thresholds(self):
         
         """Assign an array of probability thresholds (values between zero and one) to use in subsequent ROC curve and probability skill metrics.
@@ -575,11 +578,13 @@ class EvaluateDLModel:
         
         """
         self.thresholds=np.hstack([2.0,np.flip(np.linspace(0.,1.,10000))])
-    
-            
+
     def nonscalar_metrics_and_save(self, num=None):
         
         """Evaluate the DL model using varying thresholds and a series of error metrics and save results as a csv file.
+        
+        Args:
+            num (int): The bootstrap or permutation feature importance sample number. Defautls to ``None``.
         
         """
         self.assign_thresholds()
@@ -638,12 +643,14 @@ class EvaluateDLModel:
                         self.contingency_nonscalar_table.to_csv(
                             f'{self.eval_directory}/probability_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         return
-                
 
     def scalar_metrics_and_save(self, num=None):
         
         """Evaluate the DL model using a scalar threshold and a series of error metrics and save results as a csv file.
         
+        Args:
+            num (int): The bootstrap or permutation feature importance sample number. Defautls to ``None``.
+            
         """
         self.contingency_scalar_table = pd.DataFrame(np.zeros((1, 14), dtype=int),
                                                      columns=["TP", "FP", "FN", "TN", "Threshold", "POD", "POFD", "FAR", 
@@ -699,30 +706,28 @@ class EvaluateDLModel:
                             f'{self.eval_directory}/scalar_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
         return
 
-        
     def grab_verification_indices(self):
         
         """Extract the indices of various test cases for follow-up interpretation compositing.
         
         """
-        #true - positives
+        # true - positives
         self.tp_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #true - positives, prediction probability exceeding 99% confidence (very correct, severe)
+        # true - positives, prediction probability exceeding 99% confidence (very correct, severe)
         self.tp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #false - positives
+        # false - positives
         self.fp_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        #false - positives, prediction probability exceeding 99% confidence (very incorrect, severe)
+        # false - positives, prediction probability exceeding 99% confidence (very incorrect, severe)
         self.fp_99_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts >= 0.99).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        #false - negatives
+        # false - negatives
         self.fn_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #false - negatives; prediction probability below 1% (very incorrect, nonsevere)
+        # false - negatives; prediction probability below 1% (very incorrect, nonsevere)
         self.fn_01_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < 0.01).reshape(-1), (self.test_labels >= self.obs_threshold)))).squeeze()
-        #true negative
+        # true negative
         self.tn_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < self.obs_threshold).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        #true negative, prediction probability below 1% (very correct, nonsevere)
+        # true negative, prediction probability below 1% (very correct, nonsevere)
         self.tn_01_indx=np.asarray(np.where(np.logical_and((self.model_probability_forecasts < 0.01).reshape(-1), (self.test_labels < self.obs_threshold)))).squeeze()
-        
-        
+
     def add_heights_to_variables(self, variable):
         
         """Variable name for the respective filenames.
@@ -756,8 +761,7 @@ class EvaluateDLModel:
             return out
         except:
             raise ValueError("Please enter ``TK``, ``EV``, ``EU``, ``QVAPOR``, ``PRESS``, ``W_vert``, ``UH25``, ``UH03``, ``MASK``, ``MAXW``, ``CTT``, or ``DBZ`` as variable.")
-        
-        
+
     def apply_variable_dictionary(self):
         
         """Create the list of features to feed as Xarray dataset attribute in ``save_indx_variables``.
@@ -772,14 +776,44 @@ class EvaluateDLModel:
         var_list2=np.append(var_list2, 'CTT')
         var_list2=np.append(var_list2, 'MASK')
         return var_list2
+
+    def save_indices_cont(self):
         
+        """Extract the respective test data cases using indices from ``grab_verification_indices`` for PFI composites.
         
+        """
+        data = xr.Dataset({
+            'tp_indx':(['a'], self.tp_indx),
+            'fp_indx':(['b'], self.fp_indx),
+            'fn_indx':(['c'], self.fn_indx),
+            'tn_indx':(['d'], self.tn_indx),
+            },
+            coords=
+            {'features':(['features'], self.apply_variable_dictionary()),
+            })
+        if not self.bootstrap:
+            if not self.outliers:
+                if self.method=='random':
+                    if not self.perm_feat_importance:
+                        data.astype('float32').to_netcdf(
+                            f'{self.eval_directory}/compindx_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+            if self.outliers:
+                if self.method=='random':
+                    if not self.perm_feat_importance:
+                        data.astype('float32').to_netcdf(
+                            f'{self.eval_directory}/compindx_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
+
     def save_indx_variables(self, test_data, num=None):
         
         """Extract the respective test data cases using indices from ``grab_verification_indices``.
         
+        Args:
+            test_data (numpy array): test data.
+            num (int): The bootstrap or permutation feature importance sample number. Defautls to ``None``.
+        
         """
         self.grab_verification_indices()
+        self.save_indices_cont()
         tp_array = test_data[self.tp_indx,:,:,:].squeeze()
         fp_array = test_data[self.fp_indx,:,:,:].squeeze()
         fn_array = test_data[self.fn_indx,:,:,:].squeeze()
@@ -825,14 +859,16 @@ class EvaluateDLModel:
             if self.method=='random':
                 data.astype('float32').to_netcdf(
                     f'{self.eval_directory}/composite_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.nc')
-                
-                
+
     def save_indices_pfi(self, test_data, num=None):
         
         """Extract the respective test data cases using indices from ``grab_verification_indices`` for PFI composites.
         
+        Args:
+            test_data (numpy array): test data.
+            num (int): The bootstrap or permutation feature importance sample number. Defautls to ``None``.
+        
         """
-        np.arange(0,test_data.shape[0],1)
         np.random.seed(num)
         orig_indx = np.random.permutation(test_data.shape[0])
         self.grab_verification_indices()
@@ -859,13 +895,12 @@ class EvaluateDLModel:
                         data.astype('float32').to_netcdf(
                             f'{self.eval_directory}/comppfi_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_pfivar{str(self.pfi_variable)}_perm{str(num)}.nc')
 
-
     def reliability_info(self, num=None):
         
         """Generate Brier skill score/attributes diagram data.
-        
+
         Args:
-            rel_thresholds (numpy array): Thresholds to use for bins for reliability metrics.
+            num (int): The bootstrap or permutation feature importance sample number. Defautls to ``None``.
         
         """
         rel_thresholds = np.arange(0, 1.1, self.bin_res)
@@ -927,7 +962,6 @@ class EvaluateDLModel:
                     df_fq.to_csv(
                         f'{self.eval_directory}/bss_freqs_outresults_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{self.bin_res}_pfivar{str(self.pfi_variable)}_perm{str(num)}.csv')
 
-
     def generate_testfiles(self):
         
         """Function to create various testdata files for evaluation.
@@ -944,14 +978,14 @@ class EvaluateDLModel:
         data = None
         labels = None
 
-        
     def sequence_pfi(self, testdata, num):
         
         """The sequence of functions to call for permutation feature importance.
         
         Args:
+            test_data (numpy array): test data.
             num (int): The iteration seed for shuffling the variable.
-        
+            
         """
         print(f"Shuffling seed num {str(num)}...")
         test_data = self.variable_shuffler(testdata, num)
@@ -966,7 +1000,6 @@ class EvaluateDLModel:
         self.save_indices_pfi(test_data, num=num)
         if self.print_sequential:
             print("Evaluation is complete.")
-        
 
     def sequence_the_evaluation(self):
 
@@ -1010,8 +1043,7 @@ class EvaluateDLModel:
                 for i in range(self.pfi_iterations):
                     self.sequence_pfi(testdata, num=i+self.seed_indexer)
         testdata = None
-    
-    
+
     def sequence_outlier_evaluation(self):
 
         """
@@ -1056,7 +1088,6 @@ class EvaluateDLModel:
                     self.permutation_feat_importance()
         testdata = None
 
-
     def intro_sequence_evaluation(self):
         if self.print_sequential:
             print("Opening and preparing the test files...")
@@ -1068,7 +1099,6 @@ class EvaluateDLModel:
         if self.outliers:
             testdata, testlabels = self.load_qv_files()
         return testdata, testlabels
-
 
     def solo_pfi(self, testdata, testlabels):
         self.test_labels = testlabels
@@ -1085,12 +1115,13 @@ class EvaluateDLModel:
                 for i in range(self.pfi_iterations):
                     self.sequence_pfi(testdata, num=i+self.seed_indexer)
 
-                    
     def sequence_bootstrap(self, testdata, testlabels, num):
         
         """The sequence of functions to call for permutation feature importance.
         
         Args:
+            testdata (numpy array): test data.
+            testlabels (numpy array): test label data.
             num (int): The iteration seed for shuffling the variable.
         
         """
@@ -1106,7 +1137,6 @@ class EvaluateDLModel:
         self.reliability_info(num)
         if self.print_sequential:
             print("Evaluation is complete.")
-                    
 
     def solo_bootstrap(self, testdata, testlabels):
         self.add_dbz()
