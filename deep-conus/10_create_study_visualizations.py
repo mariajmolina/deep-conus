@@ -45,14 +45,10 @@ class StudyVisualizer:
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
-    Todo:
-        * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        
     """
 
     def __init__(self, climate, method, variable1, dist_directory, model_directory, model_num, comp_directory, 
-                 variable2=None, mask=False, 
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, outliers=False):
+                 variable2=None, mask=False, random_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -74,9 +70,6 @@ class StudyVisualizer:
         if self.mask:
             self.mask_str='mask'
         self.random_choice=random_choice
-        self.month_choice=month_choice 
-        self.season_choice=season_choice 
-        self.year_choice=year_choice
         self.outliers=outliers
     
     def variable_translate(self, variable):

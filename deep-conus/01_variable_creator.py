@@ -33,7 +33,7 @@ class ComputeVariable:
                  dx=4000.0, dy=4000.0, uh_bottom=2000.0, uh_top=5000.0):
 
         if climate!='current' and climate!='future':
-            raise Exception("Please enter current or future as string for climate period selection.")
+            raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
         if self.climate == 'current':

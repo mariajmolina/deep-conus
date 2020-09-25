@@ -12,33 +12,25 @@ class CreateEvaluationData:
     
     Attributes:
         climate (str): Whether to interpolate variable in the ``current`` or ``future`` climate simulation.
-        method (str): Method for parsing data. Options include ``random``, ``month``, ``season``, ``year``.
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
         directory (str): Directory where the deep learning files are saved and where these test data subsets will be saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
-        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate``, ``method``, and ``project_code``.
-        
-    Todo:
-        * Add method for ``month``, ``season``, and ``year``.
     
     """
     
-    def __init__(self, climate, method, variables, directory, mask=False, unbalanced=False, validation=False, season_choice=None):
+    def __init__(self, climate, variables, directory, mask=False, unbalanced=False, validation=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
         else:
             self.climate=climate
-        if method!='random' and method!='month' and method!='season' and method!='year':
-            raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
-        else:
-            self.method=method
+        self.method='random'
         self.variables=variables
         self.directory=directory
         self.unbalanced=unbalanced
@@ -162,12 +154,6 @@ class CreateEvaluationData:
                         parallel=True, combine='by_coords')                    
             if self.method=='random':
                 self.random_method(data, var)
-            if self.method=='month':
-                self.month_method(data, var)
-            if self.method=='season':
-                self.season_method(data, var)
-            if self.method=='year':
-                self.year_method(data, var)
         return
 
     def random_method(self, data, variable):
@@ -230,36 +216,3 @@ class CreateEvaluationData:
             return out
         except:
             raise ValueError("Please enter month integer from Dec-May.")
-
-    def month_method(self, data, variable):  # To do
-        
-        """Parses the test data into monthly groups, saving each individually to avoid memory issues during evaluation.
-        
-        Args:
-            data (Xarray data array): Test data for respective variable.
-            variable (str): The variable being processed and saved.
-        
-        """
-        return
-
-    def season_method(self, data, variable):  # To do
-        
-        """Parses the test data into seasonal groups, saving each individually to avoid memory issues during evaluation.
-        
-        Args:
-            data (Xarray data array): Test data for respective variable.
-            variable (str): The variable being processed and saved.
-        
-        """
-        return
-
-    def year_method(self, data, variable):  # To do
-        
-        """Parses the test data into yearly groups, saving each individually to avoid memory issues during evaluation.
-        
-        Args:
-            data (Xarray data array): Test data for respective variable.
-            variable (str): The variable being processed and saved.
-        
-        """
-        return

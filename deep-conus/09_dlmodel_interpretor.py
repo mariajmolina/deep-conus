@@ -40,23 +40,16 @@ class InterpretDLModel:
         validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
         isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
-        month_choice (int): Month for analysis. Defaults to ``None``. Todo...
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``. Todo...
-        year_choice (int): Year for analysis. Defaults to ``None``. Todo...
         outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
 
     Raises:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
-    Todo:
-        * Add loading and handling of test subsets that were created using the ``month``, ``season``, and ``year`` methods.
-        * Add evaluation of UH25 and UH03 for failure cases.
-        
     """
 
     def __init__(self, climate, method, variable, dist_directory, model_directory, model_num, comp_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, outliers=False):
+                 random_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
@@ -82,9 +75,6 @@ class InterpretDLModel:
         self.validation=validation
         self.isotonic=isotonic
         self.random_choice=random_choice
-        self.month_choice=month_choice 
-        self.season_choice=season_choice 
-        self.year_choice=year_choice
         self.outliers = outliers
     
     def variable_translate(self):

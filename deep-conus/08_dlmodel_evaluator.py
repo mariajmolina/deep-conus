@@ -33,9 +33,6 @@ class EvaluateDLModel:
         isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         bin_res (float): Bin resolution for the reliability curve. Defaults to ``0.05``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
-        month_choice (int): Month for analysis. Defaults to ``None``. Todo...
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``. Todo...
-        year_choice (int): Year for analysis. Defaults to ``None``. Todo...
         obs_threshold (float): Decimal value that denotes whether model output is a ``1`` or ``0``. Defaults to ``0.5``.
         print_sequential (boolean): Whether the sequential function calls to save files will output status statements. Defaults to ``True``.
         perm_feat_importance (boolean): Whether to compute permutation feature importance. One variable will be permuted at a time. Defaults to ``False``.
@@ -59,7 +56,7 @@ class EvaluateDLModel:
     
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False, bin_res=0.05,
-                 random_choice=None, month_choice=None, season_choice=None, year_choice=None, obs_threshold=0.5, 
+                 random_choice=None, obs_threshold=0.5, 
                  print_sequential=True, perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
                  bootstrap=False, boot_iterations=1000, seed_indexer=1, outliers=False, upper_perc=99):
         
@@ -69,7 +66,7 @@ class EvaluateDLModel:
             self.climate=climate
         
         if method!='random' and method!='month' and method!='season' and method!='year':
-            raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
+            raise Exception("Please enter ``random``. ``month``, ``season``, or ``year`` not available yet as method.")
         else:
             self.method=method
             
@@ -96,9 +93,6 @@ class EvaluateDLModel:
             self.mask_str='mask'
     
         self.random_choice=random_choice 
-        self.month_choice=month_choice 
-        self.season_choice=season_choice 
-        self.year_choice=year_choice
         self.obs_threshold=obs_threshold
         self.print_sequential=print_sequential
         self.perm_feat_importance=perm_feat_importance
@@ -109,29 +103,6 @@ class EvaluateDLModel:
         self.seed_indexer=seed_indexer
         self.outliers=outliers
         self.upper_perc=upper_perc
-
-    def month_translate(self):
-        
-        """Convert integer month to string month.
-        
-        Returns:
-            out (str): Input month as string.
-            
-        Raises:
-            ValueError: If the month is not within the study's range (Dec-May).
-            
-        """
-        var={12:'dec',
-             1:'jan',
-             2:'feb',
-             3:'mar',
-             4:'apr',
-             5:'may'}
-        try:
-            out=var[self.month_choice]
-            return out
-        except:
-            raise ValueError("Please enter month integer from Dec-May.")
 
     def variable_translate(self, variable):
 
@@ -239,16 +210,7 @@ class EvaluateDLModel:
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
                     if self.validation:
                         the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')          
-        if self.method=='month':
-            for var in self.variables:
-                var   ##TODO 
-        if self.method=='season':
-            for var in self.variables:
-                var   ##TODO 
-        if self.method=='year':
-            for var in self.variables:
-                var   ##TODO 
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc') 
         return the_data
 
     def open_qv_files(self):
@@ -275,16 +237,7 @@ class EvaluateDLModel:
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
                     if self.validation:
                         the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc')  
-        if self.method=='month':
-            for var in self.variables:
-                var   ##TODO 
-        if self.method=='season':
-            for var in self.variables:
-                var   ##TODO 
-        if self.method=='year':
-            for var in self.variables:
-                var   ##TODO 
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc') 
         return the_data
 
     def save_qv_files(self):
@@ -311,7 +264,7 @@ class EvaluateDLModel:
         self.add_ctt()
         self.add_mask()
         for rf_ in range(5):
-            print(rf_+1)
+            # print(rf_+1)
             self.random_choice=rf_+1
             data=self.open_qv_files()
             testdata, labels =self.assemble_and_concat(**data)
@@ -336,8 +289,12 @@ class EvaluateDLModel:
                 coords=
                 {'features':(['features'], self.apply_variable_dictionary()),
                 })
-            data.to_netcdf(
-                f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
+            if not self.unbalanced:
+                data.to_netcdf(
+                    f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}.nc')
+            if self.unbalanced:
+                data.to_netcdf(
+                    f'{self.eval_directory}/outliers_testdata_{self.mask_str}_model{self.model_num}_random{self.random_choice}_{self.upper_perc}_unbalanced.nc')
         return
 
     def load_qv_files(self):
@@ -1005,6 +962,7 @@ class EvaluateDLModel:
 
         """
         Automation of the sequence of functions to produce deep learning model evaluation files.
+        Do not run this for outlier cases.
         
         Make sure to have run ``generate_testfiles`` first.
         
@@ -1089,6 +1047,12 @@ class EvaluateDLModel:
         testdata = None
 
     def intro_sequence_evaluation(self):
+        
+        """
+        Helper function when running bootstrap or permutation feature importance in job script, to prevent memory issues.
+        Follow up with solo_pfi or solo_bootstrap.
+        
+        """
         if self.print_sequential:
             print("Opening and preparing the test files...")
         if not self.outliers:
@@ -1117,7 +1081,7 @@ class EvaluateDLModel:
 
     def sequence_bootstrap(self, testdata, testlabels, num):
         
-        """The sequence of functions to call for permutation feature importance.
+        """The sequence of functions to call for bootstrap.
         
         Args:
             testdata (numpy array): test data.

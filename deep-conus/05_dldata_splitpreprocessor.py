@@ -34,7 +34,7 @@ class SplitAndStandardize:
             self.climate=climate
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03' and variable!='MASK':
-            raise Exception("Please enter TK, EV``, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ, or MASK as variable.")
+            raise Exception("Please enter TK, EV, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ, or MASK as variable.")
         else:
             self.variable=variable
             

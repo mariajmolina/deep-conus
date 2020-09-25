@@ -14,21 +14,13 @@ class PreprocessData:
         working_directory (str): The path to the directory where the deep learning preprocessing files will be saved and worked from. 
         stormpatch_path (str): Where the storm patch files were saved.
         climate (str): The climate period to derive deep learning data for. Options are ``current`` or ``future``.
-        method (str): Variable choice(s) for preprocessing data, which include ``UHsingle`` and ``UHdouble``.
-        threshold1 (int): The threshold to use for the chosen method. This value will delineate some form of ``severe`` and ``non-severe`` storm patches.
-        threshold2 (int): The second threshold for ``UHdual`` method. Defaults to ``None``.
+        threshold1 (int): The UH threshold to use. This value will delineate some form of ``severe`` and ``non-severe`` storm patches.
         mask (boolean): Whether the threshold will be applied within the storm patch mask or within the full storm patch. Defaults to ``False``.
         num_cpus (int): Number of CPUs to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
-    Raises:
-        Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
-        
-    Todo:
-        * Add ``UHdual`` method functionality.
-        
     """
-        
-    def __init__(self, working_directory, stormpatch_path, climate, method, threshold1, threshold2=None, mask=False, num_cpus=36):
+
+    def __init__(self, working_directory, stormpatch_path, climate, threshold1, mask=False, num_cpus=36):
 
         self.working_directory=working_directory
         self.stormpatch_path=stormpatch_path
@@ -36,16 +28,7 @@ class PreprocessData:
             raise Exception("Please enter current or future for climate option.")
         else:
             self.climate=climate
-        if method!='UHsingle' and method!='UHdual':
-            raise Exception("Incorrect method. Please enter UHsingle or UHdouble.")
-        else:
-            self.method=method
-            self.threshold1=threshold1
-            if self.method=='UHdual':
-                if self.threshold2:
-                    self.threshold2=threshold2
-                if not self.threshold2: 
-                    raise Exception("Please enter a threshold for UH 0-3 km (dual UH method).")
+        self.threshold1=threshold1
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
@@ -72,30 +55,21 @@ class PreprocessData:
 
     def create_data_indices(self, time):
         
-        """Split the loaded data into categories based on the method chosen and save the first intermediary files. Here we create 
-        the indices of the storm patches that satisfy method criteria for later use.
+        """Split the loaded data into categories based on the UH threshold chosen and save the first intermediary files. Here we create 
+        the indices of the storm patches that satisfy UH criteria for later use.
         
         Args:
             time (DatetimeIndex): Time object from pandas date range.
         
         """
-        if self.method=='UHsingle':
-            if not self.mask:
-                data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
-                data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.values.max(axis=(1,2)) > self.threshold1)[:,0])})
-                data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
-            if self.mask:
-                data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
-                data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.where(data.mask).max(axis=(1,2), skipna=True).values > self.threshold1)[:,0])})
-                data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
-                
-        if self.method=='UHdual':
-            if not self.mask:
-                ### To do
-                return
-            if self.mask:
-                ### To do
-                return
+        if not self.mask:
+            data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
+            data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.values.max(axis=(1,2)) > self.threshold1)[:,0])})
+            data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
+        if self.mask:
+            data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
+            data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.where(data.mask).max(axis=(1,2), skipna=True).values > self.threshold1)[:,0])})
+            data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
 
     def parallelizing_indxs(self):
         
@@ -135,7 +109,7 @@ class PreprocessData:
             level (int): The dataset level coordinate. This could be 0, 1, 2, or 3.
             
         Returns:
-            Xarray data array of the variable for the storm patches that exceeded the method's threshold.
+            Xarray data array of the variable for the storm patches that exceeded the UH threshold.
         
         """        
         return data_var.var_grid.sel(levels=level)[data_mask.grid.values,:,:]
@@ -150,7 +124,7 @@ class PreprocessData:
             level (int): The dataset level coordinate. This could be 0, 1, 2, or 3.
             
         Returns:
-            Numpy array of the variable for the storm patches that did not exceed the method's threshold.
+            Numpy array of the variable for the storm patches that did not exceed the UH threshold.
         
         """    
         return np.delete(data_var.var_grid.sel(levels=level).values, data_mask.grid.values, axis=0)
