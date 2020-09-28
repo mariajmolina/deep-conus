@@ -21,7 +21,6 @@ class StudyVisualizer:
     
     Attributes:
         climate (str): Whether analyzing ``current`` or ``future`` climate simulation.
-        method (str): Method for parsing data. Options include ``random``, ``month``, ``season``, ``year``.
         variable1 (str): Variable name for visualization. Options include: 
                         ``EU1``, ``EU3``, ``EU5``, ``EU7``, 
                         ``EV1``, ``EV3``, ``EV5``, ``EV7``, 
@@ -34,12 +33,12 @@ class StudyVisualizer:
         model_directory (str): Directory where the deep learning model is saved.
         model_num (str): The number of the model as it was saved.
         comp_directory (str): Directory where files and figures will be saved.
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). 
+                              Defaults to ``False``. 
+        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
         variable2 (str): The second variable for analysis. Options same as ``variable1``. Defaults to ``None``.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
-        month_choice (int): Month for analysis. Defaults to ``None``.
-        season_choice (str): Three-month season string, if ``method==season`` (e.g., 'DJF'). Defaults to ``None``.
-        year_choice (int): Year for analysis. Defaults to ``None``.
         outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
         
     Raises:
@@ -47,23 +46,23 @@ class StudyVisualizer:
         
     """
 
-    def __init__(self, climate, method, variable1, dist_directory, model_directory, model_num, comp_directory, 
+    def __init__(self, climate, variable1, dist_directory, model_directory, model_num, comp_directory, 
+                 unbalanced=False, validation=False,
                  variable2=None, mask=False, random_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
-        if method!='random' and method!='month' and method!='season' and method!='year':
-            raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
-        else:
-            self.method=method
+        self.method='random'
         self.variable1=variable1
         self.variable2=variable2
         self.dist_directory=dist_directory
         self.model_directory=model_directory
         self.model_num=model_num
         self.comp_directory=comp_directory
+        self.unbalanced=unbalanced
+        self.validation=validation
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
@@ -120,39 +119,85 @@ class StudyVisualizer:
         
         """Open the file containing mean and std information for the variable.
         
-        """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable1).lower()}_{self.mask_str}_dldata_traindist.nc")
+        """     
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                 f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable1).lower()}_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+            f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable1).lower()}_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable1).lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")       
+            if self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable1).lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         if data.features.size>1:
             self.variable1_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
             self.variable1_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
         if data.features.size==1:
             self.variable1_mean=data.train_mean.values[0]
             self.variable1_std=data.train_std.values[0]
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable2).lower()}_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                 f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable2).lower()}_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+            f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable2).lower()}_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable2).lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")       
+            if self.validation:
+                data=xr.open_dataset(
+f"/{self.dist_directory}/{self.climate}_{self.variable_translate(self.variable2).lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         if data.features.size>1:
             self.variable2_mean=data.train_mean.values[self.convert_string_height(self.variable2)[0][0]]
             self.variable2_std=data.train_std.values[self.convert_string_height(self.variable2)[0][0]]
         if data.features.size==1:
             self.variable2_mean=data.train_mean.values[0]
-            self.variable2_std=data.train_std.values[0]            
+            self.variable2_std=data.train_std.values[0]
 
     def extract_eu_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
-        self.eu_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
-        self.eu_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+        self.eu_mean=data.train_mean.values[self.convert_string_height()[0][0]]
+        self.eu_std=data.train_std.values[self.convert_string_height()[0][0]]
 
     def extract_ev_mean_and_std(self):
         
         """Open the file containing mean and std information for the variable.
         
         """
-        data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
-        self.ev_mean=data.train_mean.values[self.convert_string_height(self.variable1)[0][0]]
-        self.ev_std=data.train_std.values[self.convert_string_height(self.variable1)[0][0]]
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+        self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
+        self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
 
     def extract_dbz_mean_and_std(self):
         
@@ -323,23 +368,76 @@ class StudyVisualizer:
         
         """Computation of wind shear.
         
-        """
-        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist.nc")
+        """        
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         current_eu1_mean=data.train_mean.values[0]
         current_eu1_std=data.train_std.values[0]
         current_eu2_mean=data.train_mean.values[0]
         current_eu2_std=data.train_std.values[0]
-        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         current_ev1_mean=data.train_mean.values[0]
         current_ev1_std=data.train_std.values[0]
         current_ev2_mean=data.train_mean.values[0]
         current_ev2_std=data.train_std.values[0]
-        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist.nc")
+
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         future_eu1_mean=data.train_mean.values[0]
         future_eu1_std=data.train_std.values[0]
         future_eu2_mean=data.train_mean.values[0]
         future_eu2_std=data.train_std.values[0]
-        data=xr.open_dataset(f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist.nc")
+        if not self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist_valid.nc")
+        if self.unbalanced:
+            if not self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            if self.validation:
+                data=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/future_conus_fields/dl_preprocess/future_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
         future_ev1_mean=data.train_mean.values[0]
         future_ev1_std=data.train_std.values[0]
         future_ev2_mean=data.train_mean.values[0]

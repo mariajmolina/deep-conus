@@ -87,8 +87,7 @@ class VariableTable:
     def intro_sequence_evaluation(self):
         
         """
-        Helper function when running bootstrap or permutation feature importance in job script, to prevent memory issues.
-        Follow up with solo_pfi or solo_bootstrap.
+        Open test data files created with 08_dlmodel_evaluator.py
         
         """
         if not self.outliers:

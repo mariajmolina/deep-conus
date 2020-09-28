@@ -21,7 +21,6 @@ class InterpretDLModel:
     
     Attributes:
         climate (str): Whether analyzing ``current`` or ``future`` climate simulation.
-        method (str): Method for parsing data. Options include ``random``, ``month``, ``season``, ``year``.
         variable (str): Variable name for saliency map output. Options include: 
                         ``EU1``, ``EU3``, ``EU5``, ``EU7``, 
                         ``EV1``, ``EV3``, ``EV5``, ``EV7``, 
@@ -47,7 +46,7 @@ class InterpretDLModel:
         
     """
 
-    def __init__(self, climate, method, variable, dist_directory, model_directory, model_num, comp_directory, 
+    def __init__(self, climate, variable, dist_directory, model_directory, model_num, comp_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
                  random_choice=None, outliers=False):
         
@@ -55,11 +54,7 @@ class InterpretDLModel:
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
-        
-        if method!='random' and method!='month' and method!='season' and method!='year':
-            raise Exception("Please enter ``random``, ``month``, ``season``, or ``year`` as method.")
-        else:
-            self.method=method
+        self.method='random'
         self.variable=variable
         self.dist_directory=dist_directory
         self.model_directory=model_directory
@@ -117,7 +112,7 @@ class InterpretDLModel:
         the_hgt=int(self.variable[-1])
         heights=np.array([1,3,5,7])
         the_indx=np.where(heights==the_hgt)
-        return the_indx     
+        return the_indx
 
     def extract_variable_mean_and_std(self):
         
