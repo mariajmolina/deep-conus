@@ -1,3 +1,4 @@
-
+*.pbs
+configpaths.py
 *.pyc
 .ipynb_checkpoints/
