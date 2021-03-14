@@ -1,7 +1,6 @@
 import keras
 import tensorflow as tf
 from keras import backend as K
-from keras.backend.tensorflow_backend import set_session
 from keras.models import Model, save_model, load_model, Sequential
 from keras.layers import Dense, Activation, Conv2D, Input, AveragePooling2D, MaxPooling2D
 from keras.layers import SpatialDropout2D, Flatten, LeakyReLU, Dropout, BatchNormalization, LeakyReLU
