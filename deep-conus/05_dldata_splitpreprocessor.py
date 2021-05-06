@@ -1,7 +1,6 @@
 import xarray as xr
 import numpy as np
 
-
 class SplitAndStandardize:
     
     """Class instantiation of SplitAndStandardize:
@@ -26,18 +25,23 @@ class SplitAndStandardize:
         
     """
     
-    def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask=False, unbalanced=False, validation=False):
+    def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask=False, unbalanced=False, validation=False, 
+                 currenttrain_futuretest=False):
 
+        # assigning class attributes
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
         else:
             self.climate=climate
+            
+        # variable name checks and string automatic assignments
         if variable!='TK' and variable!='EV' and variable!='EU' and variable!='QVAPOR' and variable!='PRESS' and variable!='W_vert' \
         and variable!='WMAX' and variable!='DBZ' and variable!='CTT' and variable!='UH25' and variable!='UH03' and variable!='MASK':
             raise Exception("Please enter TK, EV, EU, QVAPOR, PRESS, W_vert, UH25, UH03, MAXW, CTT, DBZ, or MASK as variable.")
         else:
             self.variable=variable
             
+            # temperature at 1, 3, 5, and 7 km
             if self.variable=="TK":
                 self.choice_var1="temp_sev_1"
                 self.choice_var3="temp_sev_3"
@@ -45,7 +49,8 @@ class SplitAndStandardize:
                 self.choice_var7="temp_sev_7"
                 self.attrs_array=np.array(["tk_1km", "tk_3km", "tk_5km", "tk_7km"])
                 self.single=False
-
+                
+            # v-wind at 1, 3, 5, and 7 km
             if self.variable=="EV":
                 self.choice_var1="evwd_sev_1"
                 self.choice_var3="evwd_sev_3"
@@ -54,6 +59,7 @@ class SplitAndStandardize:
                 self.attrs_array=np.array(["ev_1km", "ev_3km", "ev_5km", "ev_7km"])
                 self.single=False
 
+            # u-wind at 1, 3, 5, and 7 km
             if self.variable=="EU":
                 self.choice_var1="euwd_sev_1"
                 self.choice_var3="euwd_sev_3"
@@ -61,7 +67,8 @@ class SplitAndStandardize:
                 self.choice_var7="euwd_sev_7"
                 self.attrs_array=np.array(["eu_1km", "eu_3km", "eu_5km", "eu_7km"])
                 self.single=False
-
+                
+            # water vapor at 1, 3, 5, and 7 km
             if self.variable=="QVAPOR":
                 self.choice_var1="qvap_sev_1"
                 self.choice_var3="qvap_sev_3"
@@ -69,7 +76,8 @@ class SplitAndStandardize:
                 self.choice_var7="qvap_sev_7"
                 self.attrs_array=np.array(["qv_1km", "qv_3km", "qv_5km", "qv_7km"])
                 self.single=False
-
+                
+            # pressure at 1, 3, 5, and 7 km
             if self.variable=="PRESS":
                 self.choice_var1="pres_sev_1"
                 self.choice_var3="pres_sev_3"
@@ -78,6 +86,7 @@ class SplitAndStandardize:
                 self.attrs_array=np.array(["pr_1km", "pr_3km", "pr_5km", "pr_7km"])
                 self.single=False
 
+            # w-wind at 1, 3, 5, and 7 km
             if self.variable=="W_vert":
                 self.choice_var1="wwnd_sev_1"
                 self.choice_var3="wwnd_sev_3"
@@ -86,49 +95,63 @@ class SplitAndStandardize:
                 self.attrs_array=np.array(["ww_1km", "ww_3km", "ww_5km", "ww_7km"])
                 self.single=False
 
+            # max-w
             if self.variable=="WMAX":
                 self.choice_var1="maxw_sev_1"
                 self.attrs_array=np.array(["maxw"]) 
                 self.single=True
                 
+            # dbz
             if self.variable=="DBZ":
                 self.choice_var1="dbzs_sev_1"
                 self.attrs_array=np.array(["dbzs"])
                 self.single=True
                 
+            # cloud top temperature
             if self.variable=="CTT":
                 self.choice_var1="ctts_sev_1"
                 self.attrs_array=np.array(["ctts"]) 
                 self.single=True
                 
+            # 2-5 km updraft helicity
             if self.variable=="UH25":
                 self.choice_var1="uh25_sev_1"
                 self.attrs_array=np.array(["uh25"]) 
                 self.single=True
                 
+            # 0-3 km updraft helicity
             if self.variable=="UH03":
                 self.choice_var1="uh03_sev_1"
                 self.attrs_array=np.array(["uh03"])    
                 self.single=True
                 
+            # storm masks
             if self.variable=="MASK":
                 self.choice_var1="mask_sev_1"
                 self.attrs_array=np.array(["mask"])    
                 self.single=True
             
+        # percent splitting for train and test sets
         if percent_split>=1:
             raise Exception("Percent split should be a float less than 1.")
         if percent_split<1:
             self.percent_split=percent_split
+        
+        # assign class attributes
         self.working_directory=working_directory
         self.threshold1=threshold1
         self.unbalanced=unbalanced
         self.validation=validation
+        
         self.mask=mask
+        # mask option string naming for files
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
+        
+        # boolean for training with current, testing with future, standardization
+        self.currenttrain_futuretest=currenttrain_futuretest
 
     def variable_translate(self):
         
@@ -169,6 +192,7 @@ class SplitAndStandardize:
             data (Xarray dataset): Concatenated six months of data.
         
         """
+        # opening monthly above threshold files
         data_dec=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_12.nc", 
                                            parallel=True, combine='by_coords')
         data_jan=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_01.nc",
@@ -181,13 +205,18 @@ class SplitAndStandardize:
                                            parallel=True, combine='by_coords')
         data_may=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_05.nc", 
                                            parallel=True, combine='by_coords')
+        
+        # concatenating
         data=xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        
+        # closing files (these are large files!)
         data_dec=data_dec.close()
         data_jan=data_jan.close()
         data_feb=data_feb.close()
         data_mar=data_mar.close()
         data_apr=data_apr.close()
         data_may=data_may.close()
+        
         return data
 
     def open_below_threshold(self):
@@ -197,7 +226,8 @@ class SplitAndStandardize:
         Returns:
             data (Xarray dataset): Concatenated six months of data.
             
-        """        
+        """  
+        # opening monthly above threshold files
         data_dec=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_12.nc",
                                           parallel=True, combine='by_coords')
         data_jan=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_01.nc",
@@ -210,13 +240,18 @@ class SplitAndStandardize:
                                            parallel=True, combine='by_coords')
         data_may=xr.open_mfdataset(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_05.nc",
                                            parallel=True, combine='by_coords')
+        
+        # concatenating
         data=xr.concat([data_dec, data_jan, data_feb, data_mar, data_apr, data_may], dim='patch')
+        
+        # closing files (these are large files!)
         data_dec=data_dec.close()
         data_jan=data_jan.close()
         data_feb=data_feb.close()
         data_mar=data_mar.close()
         data_apr=data_apr.close()
         data_may=data_may.close()
+        
         return data
 
     def grab_variables(self, data):
@@ -230,12 +265,15 @@ class SplitAndStandardize:
             data_1, data_2, data_3, data_4 or data_1 (numpy array(s)): Input data as numpy arrays.
             
         """
+        # if variable file contains 4 heights
         if not self.single:
             data_1=data[self.choice_var1].values
             data_2=data[self.choice_var3].values
             data_3=data[self.choice_var5].values
             data_4=data[self.choice_var7].values
             return data_1, data_2, data_3, data_4
+        
+        # if variable file is single height
         if self.single:
             data_1=data[self.choice_var1].values
             return data_1
@@ -262,49 +300,61 @@ class SplitAndStandardize:
             
         """
         if self.validation:
-            # validation above
+            
+            # validation above UH threshold (stratified sampling)
             np.random.seed(0)
             select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*0.1)]
             valid_above=data_a[select_data]
             data_a=np.delete(data_a, select_data, axis=0)
-            # validation below
+            
+            # validation below UH threshold (stratified sampling)
             np.random.seed(0)
             select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*0.1)]
             valid_below=data_b[select_data]
             data_b=np.delete(data_b, select_data, axis=0)
         
-        # train above
+        # train above (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_above=data_a[select_data]
-        # train below
+        
+        # train below (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_below=data_b[select_data]
-        # test above
+        
+        # test above (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
         test_above=data_a[select_data]
-        # generate index for test below
+        
+        # generate index for test below (stratified sampling)
         indx_below=int((((data_a.shape[0]*(1-self.percent_split))*data_b.shape[0])/data_a.shape[0])+(data_a.shape[0]*(1-self.percent_split)))
-        # test below
+        
+        # test below (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[int(data_a.shape[0] * self.percent_split):indx_below]
         test_below=data_b[select_data]
         
         # merge above and below data in prep to shuffle/permute
         if self.validation:
+            
             valid_data=np.vstack([valid_above, valid_below])
+            
             if return_label:
                 valid_above_label=np.ones(valid_above.shape[0])
                 valid_below_label=np.zeros(valid_below.shape[0])
                 valid_label=np.hstack([valid_above_label, valid_below_label])
+                
         train_data=np.vstack([train_above, train_below])
+        
         if return_label:
             train_above_label=np.ones(train_above.shape[0])
             train_below_label=np.zeros(train_below.shape[0])
             train_label=np.hstack([train_above_label, train_below_label])
+            
         test_data=np.vstack([test_above, test_below])
+        
         if return_label:
             test_above_label=np.ones(test_above.shape[0])
             test_below_label=np.zeros(test_below.shape[0])
@@ -314,27 +364,37 @@ class SplitAndStandardize:
         if self.validation:
             np.random.seed(10)
             valid_data=np.random.permutation(valid_data)
+            
         np.random.seed(10)
         train_data=np.random.permutation(train_data)
+        
         np.random.seed(10)
         test_data=np.random.permutation(test_data)
         
         if not return_label:
+            
             if not self.validation:
                 return train_data, test_data
+            
             if self.validation:
                 return train_data, test_data, valid_data
             
         if return_label:
+            
             if self.validation:
+                
                 np.random.seed(10)
                 valid_label=np.random.permutation(valid_label)
+                
             np.random.seed(10)
             train_label=np.random.permutation(train_label)
+            
             np.random.seed(10)
             test_label=np.random.permutation(test_label)  
+            
             if self.validation:
                 return train_data, test_data, train_label, test_label, valid_data, valid_label
+            
             if not self.validation:
                 return train_data, test_data, train_label, test_label
 
@@ -353,47 +413,58 @@ class SplitAndStandardize:
             
         """
         if self.validation:
-            # validation above
+            
+            # validation above UH threshold (stratified sampling)
             np.random.seed(0)
             select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*0.1)]
             valid_above=data_a[select_data]
             data_a=np.delete(data_a, select_data, axis=0)
-            # validation below
+            
+            # validation below UH threshold (stratified sampling)
             np.random.seed(0)
             select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*0.1)]
             valid_below=data_b[select_data]
             data_b=np.delete(data_b, select_data, axis=0)
         
-        # train above
+        # train above UH threshold (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[:int(data_a.shape[0]*self.percent_split)]
         train_above=data_a[select_data]
-        # train below
+        
+        # train below UH threshold (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[:int(data_b.shape[0]*self.percent_split)]
         train_below=data_b[select_data]
-        # test above
+        
+        # test above UH threshold (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_a.shape[0])[int(data_a.shape[0]*self.percent_split):]
         test_above=data_a[select_data]
-        # test below
+        
+        # test below UH threshold (stratified sampling)
         np.random.seed(0)
         select_data=np.random.permutation(data_b.shape[0])[int(data_b.shape[0]*self.percent_split):]
         test_below=data_b[select_data]
         
         # merge above and below data in prep to shuffle/permute
         if self.validation:
+            
             valid_data=np.vstack([valid_above, valid_below])
+            
             if return_label:
                 valid_above_label=np.ones(valid_above.shape[0])
                 valid_below_label=np.zeros(valid_below.shape[0])
                 valid_label=np.hstack([valid_above_label, valid_below_label])
+                
         train_data=np.vstack([train_above, train_below])
+        
         if return_label:
             train_above_label=np.ones(train_above.shape[0])
             train_below_label=np.zeros(train_below.shape[0])
             train_label=np.hstack([train_above_label, train_below_label])
+            
         test_data=np.vstack([test_above, test_below])
+        
         if return_label:
             test_above_label=np.ones(test_above.shape[0])
             test_below_label=np.zeros(test_below.shape[0])
@@ -403,27 +474,37 @@ class SplitAndStandardize:
         if self.validation:
             np.random.seed(10)
             valid_data=np.random.permutation(valid_data)
+            
         np.random.seed(10)
         train_data=np.random.permutation(train_data)
+        
         np.random.seed(10)
         test_data=np.random.permutation(test_data)
         
         if not return_label:
+            
             if not self.validation:
                 return train_data, test_data
+            
             if self.validation:
                 return train_data, test_data, valid_data
 
         if return_label:
+            
             if self.validation:
+                
                 np.random.seed(10)
                 valid_label=np.random.permutation(valid_label)
+                
             np.random.seed(10)
             train_label=np.random.permutation(train_label)
+            
             np.random.seed(10)
             test_label=np.random.permutation(test_label)  
+            
             if self.validation:
                 return train_data, test_data, train_label, test_label, valid_data, valid_label
+            
             if not self.validation:
                 return train_data, test_data, train_label, test_label
 
@@ -439,9 +520,14 @@ class SplitAndStandardize:
         
         """
         from sklearn.preprocessing import MinMaxScaler
-        scaler=MinMaxScaler(feature_range=(0, 1))
-        scaler.fit(data)
-        return scaler.transform(data)
+        
+        if not self.currenttrain_futuretest:
+            scaler=MinMaxScaler(feature_range=(0, 1))
+            scaler.fit(data)
+            return scaler.transform(data)
+        
+        if self.currenttrain_futuretest:
+            raise Exception("self.currenttrain_futuretest not available for minmax scaling yet")
 
     def minmax_scale_apply_test(self, train, test):
         
@@ -456,9 +542,14 @@ class SplitAndStandardize:
         
         """
         from sklearn.preprocessing import MinMaxScaler
-        scaler=MinMaxScaler(feature_range=(0, 1))
-        scaler.fit(train)
-        return scaler.transform(test)
+        
+        if not self.currenttrain_futuretest:
+            scaler=MinMaxScaler(feature_range=(0, 1))
+            scaler.fit(train)
+            return scaler.transform(test)
+        
+        if self.currenttrain_futuretest:
+            raise Exception("self.currenttrain_futuretest not available for minmax scaling yet")
 
     def standardize_scale_apply(self, data):
         
@@ -473,7 +564,14 @@ class SplitAndStandardize:
         """
         if self.variable=="UH03":
             data[np.isinf(data)]=0.0
-        return np.divide((data - np.nanmean(data)), np.nanstd(data))
+            
+        if not self.currenttrain_futuretest:
+            return np.divide((data - np.nanmean(data)), np.nanstd(data))
+        
+        if self.currenttrain_futuretest:
+            temp_stat = xr.open_dataset(
+                f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            return np.divide((data - temp_stat['train_mean'][self.tmpindex].values), temp_stat['train_std'][self.tmpindex].values)
 
     def standardize_scale_apply_test(self, train, test):
         
@@ -490,7 +588,14 @@ class SplitAndStandardize:
         if self.variable=="UH03":
             train[np.isinf(train)]=0.0
             test[np.isinf(test)]=0.0
-        return np.divide((test - np.nanmean(train)), np.nanstd(train))
+            
+        if not self.currenttrain_futuretest:
+            return np.divide((test - np.nanmean(train)), np.nanstd(train))
+        
+        if self.currenttrain_futuretest:
+            temp_stat = xr.open_dataset(
+                f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            return np.divide((test - temp_stat['train_mean'][self.tmpindex].values), temp_stat['train_std'][self.tmpindex].values)
 
     def split_data_to_traintest(self, below1=None, below2=None, below3=None, below4=None, above1=None, above2=None, above3=None, above4=None):
         
@@ -515,27 +620,37 @@ class SplitAndStandardize:
         
         """
         if not self.single:
-            if not self.unbalanced:    
+            
+            if not self.unbalanced:
+                
                 if not self.validation:
+                    
                     train1, test1, train_label, test_label=self.create_traintest_data(below1, above1, return_label=True)
                     train2, test2=self.create_traintest_data(below2, above2, return_label=False)
                     train3, test3=self.create_traintest_data(below3, above3, return_label=False)
                     train4, test4=self.create_traintest_data(below4, above4, return_label=False)
                     return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
+                
                 if self.validation:
+                    
                     train1, test1, train_label, test_label, valid_data1, valid_label=self.create_traintest_data(below1, above1, return_label=True)
                     train2, test2, valid_data2=self.create_traintest_data(below2, above2, return_label=False)
                     train3, test3, valid_data3=self.create_traintest_data(below3, above3, return_label=False)
                     train4, test4, valid_data4=self.create_traintest_data(below4, above4, return_label=False)
                     return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label, valid_data1, valid_data2, valid_data3, valid_data4, valid_label
+                
             if self.unbalanced:
+                
                 if not self.validation:
+                    
                     train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
                     train2, test2=self.create_traintest_unbalanced(below2, above2, return_label=False)
                     train3, test3=self.create_traintest_unbalanced(below3, above3, return_label=False)
                     train4, test4=self.create_traintest_unbalanced(below4, above4, return_label=False)
                     return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
+                
                 if self.validation:
+                    
                     train1, test1, train_label, test_label, valid_data1, valid_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
                     train2, test2, valid_data2=self.create_traintest_unbalanced(below2, above2, return_label=False)
                     train3, test3, valid_data3=self.create_traintest_unbalanced(below3, above3, return_label=False)
@@ -543,18 +658,28 @@ class SplitAndStandardize:
                     return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label, valid_data1, valid_data2, valid_data3, valid_data4, valid_label 
                 
         if self.single:
+            
             if not self.unbalanced:
+                
                 if not self.validation:
+                    
                     train1, test1, train_label, test_label=self.create_traintest_data(below1, above1, return_label=True)
                     return train1, test1, train_label, test_label
+                
                 if self.validation:
+                    
                     train1, test1, train_label, test_label, valid_data1, valid_label=self.create_traintest_data(below1, above1, return_label=True)
                     return train1, test1, train_label, test_label, valid_data1, valid_label
+                
             if self.unbalanced:
+                
                 if not self.validation:
+                    
                     train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
                     return train1, test1, train_label, test_label
+                
                 if self.validation:
+                    
                     train1, test1, train_label, test_label, valid_data1, valid_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
                     return train1, test1, train_label, test_label, valid_data1, valid_label
 
@@ -573,13 +698,29 @@ class SplitAndStandardize:
             data_scaled1, data_scaled2, data_scaled3, data_scaled4 or data_scaled1 (numpy array(s)): The training data standardized.
             
         """
+        # self.tmpindex is for use with self.currenttrain_futuretest
+        self.tmpindex=0
         data_scaled1=func(data1)
+        self.tmpindex=[]
+        
         if not self.single:
+            
+            self.tmpindex=1
             data_scaled2=func(data2)
+            self.tmpindex=[]
+            
+            self.tmpindex=2
             data_scaled3=func(data3)
+            self.tmpindex=[]
+            
+            self.tmpindex=3
             data_scaled4=func(data4)
+            self.tmpindex=[]
+            
             return data_scaled1, data_scaled2, data_scaled3, data_scaled4
+        
         if self.single:
+            
             return data_scaled1
 
     def standardize_testing(self, func, train1=None, train2=None, train3=None, train4=None, 
@@ -602,13 +743,29 @@ class SplitAndStandardize:
             data1, data2, data3, data4 or data1 (numpy array(s)): The testing data standardized.
             
         """
+        # self.tmpindex is for use with self.currenttrain_futuretest
+        self.tmpindex=0
         data1=func(train1, test1)
+        self.tmpindex=[]
+        
         if not self.single:
+            
+            self.tmpindex=1
             data2=func(train2, test2)
+            self.tmpindex=[]
+            
+            self.tmpindex=2
             data3=func(train3, test3)
+            self.tmpindex=[]
+            
+            self.tmpindex=3
             data4=func(train4, test4)
+            self.tmpindex=[]
+            
             return data1, data2, data3, data4
+        
         if self.single:
+            
             return data1
 
     def stack_the_data(self, data1, data2, data3, data4):
@@ -626,6 +783,7 @@ class SplitAndStandardize:
             
         """
         if not self.single:
+            
             totaldata=np.stack([data1, data2, data3, data4])
             return totaldata
 
@@ -645,11 +803,36 @@ class SplitAndStandardize:
             Input training data's mean and standard deviation values (float).
             
         """
-        if not self.single:
-            return np.array([np.nanmean(traindata1), np.nanmean(traindata2), np.nanmean(traindata3), np.nanmean(traindata4)]), \
-                   np.array([np.nanstd(traindata1), np.nanstd(traindata2), np.nanstd(traindata3), np.nanstd(traindata4)])
-        if self.single:
-            return np.nanmean(traindata1), np.nanstd(traindata1)
+        if not self.currenttrain_futuretest:
+            
+            if not self.single:
+                
+                return np.array([np.nanmean(traindata1), np.nanmean(traindata2), np.nanmean(traindata3), np.nanmean(traindata4)]), \
+                       np.array([np.nanstd(traindata1), np.nanstd(traindata2), np.nanstd(traindata3), np.nanstd(traindata4)])
+            
+            if self.single:
+                
+                return np.nanmean(traindata1), np.nanstd(traindata1)
+            
+        if self.currenttrain_futuretest:
+            
+            temp_stat = xr.open_dataset(
+                f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            
+            if not self.single:
+                
+                return np.array([temp_stat['train_mean'][0].values,
+                                 temp_stat['train_mean'][1].values,
+                                 temp_stat['train_mean'][2].values,
+                                 temp_stat['train_mean'][3].values]),  \
+                       np.array([temp_stat['train_std'][0].values,
+                                 temp_stat['train_std'][1].values,
+                                 temp_stat['train_std'][2].values,
+                                 temp_stat['train_std'][3].values])
+            
+            if self.single:
+                
+                return temp_stat['train_mean'][0].values, temp_stat['train_std'][0].values
 
     def save_data(self, train_data, train_label, test_data, test_label, train_mean, train_std, valid_data=None, valid_label=None):
         
@@ -666,7 +849,9 @@ class SplitAndStandardize:
             
         """
         if not self.single: 
+            
             if not self.validation:
+                
                 data_assemble=xr.Dataset({
                     'X_train':(['features','a','x','y'], train_data),
                     'X_train_label':(['a'], train_label),
@@ -676,7 +861,9 @@ class SplitAndStandardize:
                      coords=
                     {'feature':(['features'],self.attrs_array),
                     })
+                
             if self.validation:
+                
                 data_assemble=xr.Dataset({
                     'X_train':(['features','a','x','y'], train_data),
                     'X_train_label':(['a'], train_label),
@@ -688,6 +875,7 @@ class SplitAndStandardize:
                      coords=
                     {'feature':(['features'],self.attrs_array),
                     })
+                
             dist_assemble=xr.Dataset({
                 'train_mean':(['features'], train_mean),
                 'train_std':(['features'], train_std),
@@ -695,8 +883,11 @@ class SplitAndStandardize:
                 coords=
                 {'feature':(['features'],self.attrs_array),
                 })
+            
         if self.single:
+            
             if not self.validation:
+                
                 data_assemble=xr.Dataset({
                     'X_train':(['a','x','y'], train_data),
                     'X_train_label':(['a'], train_label),
@@ -706,7 +897,9 @@ class SplitAndStandardize:
                      coords=
                     {'feature':(['features'],self.attrs_array),
                     })
+                
             if self.validation:
+                
                 data_assemble=xr.Dataset({
                     'X_train':(['a','x','y'], train_data),
                     'X_train_label':(['a'], train_label),
@@ -718,6 +911,7 @@ class SplitAndStandardize:
                      coords=
                     {'feature':(['features'],self.attrs_array),
                     })
+                
             dist_assemble=xr.Dataset({
                 'train_mean':(['features'], np.array([train_mean])),
                 'train_std':(['features'], np.array([train_std])),
@@ -725,27 +919,37 @@ class SplitAndStandardize:
                 coords=
                 {'feature':(['features'],self.attrs_array),
                 })
+            
         if not self.unbalanced:
+            
             if not self.validation:
+                
                 data_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest.nc")
                 dist_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
                 print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
+            
             if self.validation:
+                
                 data_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_valid.nc")
                 dist_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_valid.nc")
                 print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")                
+        
         if self.unbalanced:
+            
             if not self.validation:
+                
                 data_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc")
                 dist_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
                 print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")
+            
             if self.validation:
+                
                 data_assemble.to_netcdf(
                     f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_unbalanced_valid.nc")
                 dist_assemble.to_netcdf(
@@ -760,80 +964,129 @@ class SplitAndStandardize:
         print("Opening files...")
         data_above=self.open_above_threshold()
         data_below=self.open_below_threshold()
+        
         if not self.single:
+            
             print("Grabbing variables...")
             above_1, above_2, above_3, above_4=self.grab_variables(data_above)
             below_1, below_2, below_3, below_4=self.grab_variables(data_below)
+            
             data_above=data_above.close()
             data_below=data_below.close()
+            
             print("Splitting data...")
             if not self.validation:
+                
                 train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label=self.split_data_to_traintest(
                                     below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4)
+                
             if self.validation:
+                
                 train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label, valid1, valid2, \
                 valid3, valid4, valid_label=self.split_data_to_traintest(
                                     below_1, below_2, below_3, below_4, above_1, above_2, above_3, above_4)
+                
             above_1=None; above_2=None; above_3=None; above_4=None
             below_1=None; below_2=None; below_3=None; below_4=None
+            
             print("Standardizing testing...")
             test1, test2, test3, test4=self.standardize_testing(
                 self.standardize_scale_apply_test, train1, train2, train3, train4, test1, test2, test3, test4)
+            
             if self.validation:
+                
                 print("Standardizing validation...")
                 valid1, valid2, valid3, valid4=self.standardize_testing(
                     self.standardize_scale_apply_test, train1, train2, train3, train4, valid1, valid2, valid3, valid4)
+                
             print("Generating distribution files...")
-            train_mean, train_std=self.return_train_mean_and_std(train1, train2, train3, train4)        
+            train_mean, train_std=self.return_train_mean_and_std(train1, train2, train3, train4)       
+            
             print("Standardizing training...")
             train1, train2, train3, train4=self.standardize_training(self.standardize_scale_apply, train1, train2, train3, train4)
+            
             print("Stacking files...")
             Xtrain=self.stack_the_data(train1, train2, train3, train4)
             Xtest=self.stack_the_data(test1, test2, test3, test4)
+            
             if self.validation:
+                
                 Xvalid=self.stack_the_data(valid1, valid2, valid3, valid4)
+                
             train1=None; train2=None; train3=None; train4=None
             test1=None;  test2=None;  test3=None;  test4=None
+            
             if self.validation:
+                
                 valid1=None;  valid2=None;  valid3=None;  valid4=None
+                
         if self.single:
+            
             print("Grabbing variables...")
             above_1=self.grab_variables(data_above)
             below_1=self.grab_variables(data_below)   
+            
             data_above=data_above.close()
             data_below=data_below.close()
+            
             print("Splitting data...")
+            
             if not self.validation:
+                
                 train1, test1, train_label, test_label=self.split_data_to_traintest(below1=below_1, above1=above_1)
+                
             if self.validation:
+                
                 train1, test1, train_label, test_label, valid1, valid_label=self.split_data_to_traintest(below1=below_1, above1=above_1)
+                
             above_1=None; below_1=None
+            
             if self.variable!='MASK':
+                
                 print("Standardizing testing...")
                 test1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=test1)
+                
                 if self.validation:
+                    
                     print("Standardizing validation...")
                     valid1=self.standardize_testing(self.standardize_scale_apply_test, train1=train1, test1=valid1)
+                    
                 print("Generating distribution files...")
                 train_mean, train_std=self.return_train_mean_and_std(traindata1=train1)
+                
                 print("Standardizing training...")
                 train1=self.standardize_training(self.standardize_scale_apply, data1=train1)
+                
             if self.variable=='MASK':
+                
                 print("No standardizing training or testing because this is the storm patch mask...")
                 print("No generating distribution files either...")
                 train_mean=0.
                 train_std=0.
+                
             print("Stacking files...")
             Xtrain=train1
             Xtest=test1
+            
             if self.validation:
+                
                 Xvalid=valid1
+                
             train1=None; test1=None
+            
             if self.validation:
+                
                 valid1=None
+                
         print("Saving file...")
+        
         if not self.validation:
+            
             self.save_data(Xtrain, train_label, Xtest, test_label, train_mean, train_std) 
+            
         if self.validation:
+            
             self.save_data(Xtrain, train_label, Xtest, test_label, train_mean, train_std, Xvalid, valid_label) 
+            
+        # delete objects
         Xtrain=None; Xtest=None; train_label=None; test_label=None; train_mean=None; train_std=None
