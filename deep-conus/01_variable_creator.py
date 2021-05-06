@@ -1,7 +1,6 @@
 import xarray as xr
 import numpy as np
 
-
 class ComputeVariable:
 
     """Class instantiation of ComputeVariable:
@@ -32,29 +31,40 @@ class ComputeVariable:
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40, 
                  dx=4000.0, dy=4000.0, uh_bottom=2000.0, uh_top=5000.0):
 
+        # sanity check
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` as string for climate period selection.")
         else:
             self.climate=climate
+            
+        # string help for filenames
         if self.climate == 'current':
             self.folder='CTRL3D'
             self.filename='CTRL'
         if self.climate == 'future':
             self.folder='PGW3D'
             self.filename='PGW'
+            
+        # sanity check
         if variable!='CAPE' and variable!='CTT' and variable!='UH':
             raise Exception("Variable not available. Please enter CAPE, CTT, or UH.")
         else:
             self.variable=variable
+            
+        # assign attributes
         self.month1=month_start
         self.month2=month_end
         self.year1=year_start
+        
+        # python indexing
         if year_start == year_end:
             self.year2 = year_end + 1
         if year_start!=year_end:
             self.year2=year_end
         self.destination=destination
         self.rda_path=rda_path
+        
+        # dask help
         self.daskstatus=start_dask
         if self.daskstatus:
             if not project_code:
@@ -63,6 +73,8 @@ class ComputeVariable:
                 self.project_code=project_code
                 self.cluster_min=cluster_min
                 self.cluster_max=cluster_max
+                
+        # WRF dataset variables
         self.dx=dx
         self.dy=dy
         self.uh_bottom=uh_bottom
@@ -92,7 +104,9 @@ class ComputeVariable:
         """
         #terrain (m)
         data_mapfc=xr.open_dataset(f'{self.rda_path}INVARIANT/RALconus4km_wrf_constants.nc').HGT.sel(Time='2000-10-01')
+        
         if self.variable == 'CAPE':
+            
             #pres_hpa: full pressure (perturb and base state) #convert from Pa to hPa.
             data_pstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
                                            combine='by_coords', parallel=True, chunks={'Time':1}).P * 0.01 
@@ -105,7 +119,8 @@ class ComputeVariable:
             #geopotential height (m)
             data_zstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
                                            combine='by_coords', parallel=True, chunks={'Time':1}).Z
-            data_zstag = 0.5 * (data_zstag[:,0:50,:,:] + data_zstag[:,1:51,:,:])    
+            data_zstag = 0.5 * (data_zstag[:,0:50,:,:] + data_zstag[:,1:51,:,:])   
+            
             if month == '01' or month == '02' or month == '03':
                 month1='01'
                 month2='03'
@@ -118,15 +133,20 @@ class ComputeVariable:
             if month == '10' or month == '11' or month == '12':
                 month1='10'
                 month2='12'
+                
             data_sstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf2d_d01_{self.filename}_PSFC_{year}{month1}-{year}{month2}*.nc', 
                                            combine='by_coords', parallel=True, chunks={'Time':1}).PSFC * 0.01 
+            
             data_sstag=data_sstag[(data_sstag.Time.dt.hour==0)|(data_sstag.Time.dt.hour==3)|(data_sstag.Time.dt.hour==6)|
                                     (data_sstag.Time.dt.hour==9)|(data_sstag.Time.dt.hour==12)|(data_sstag.Time.dt.hour==15)|
                                     (data_sstag.Time.dt.hour==18)|(data_sstag.Time.dt.hour==21)]
+            
             data_sstag=data_sstag[(data_sstag.Time.dt.month==int(month))]
+            
             return data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag
 
         if self.variable == 'CTT':
+            
             #pres_hpa: full pressure (perturb and base state) #convert from Pa to hPa.
             data_pstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_P_{year}{month}*.nc',
                                            combine='by_coords', parallel=True, chunks={'Time':1}).P*0.01 
@@ -145,10 +165,12 @@ class ComputeVariable:
             data_zstag = 0.5 * (data_zstag[:,0:50,:,:] + data_zstag[:,1:51,:,:])
             #qice: ice mixing ratio (kg/kg)
             data_icestag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_QICE_{year}{month}.nc', 
-                                             combine='by_coords', parallel=True, chunks={'Time':1}).QICE                         
+                                             combine='by_coords', parallel=True, chunks={'Time':1}).QICE
+            
             return data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag
 
         if self.variable == 'UH':
+            
             #geopotential height (m)
             data_zstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_Z_{year}{month}*.nc', 
                                            combine='by_coords', parallel=True, chunks={'Time':1}).Z
@@ -161,6 +183,7 @@ class ComputeVariable:
             #V-wind component (m/s)
             data_vstag=xr.open_mfdataset(f'{self.rda_path}{self.folder}/{year}/wrf3d_d01_{self.filename}_EV_{year}{month}*.nc', 
                                            combine='by_coords', parallel=True, chunks={'Time':1}).EV
+            
             return data_zstag, data_wstag, data_ustag, data_vstag, data_mapfc
 
     def activate_workers(self):
@@ -170,10 +193,12 @@ class ComputeVariable:
         """
         from ncar_jobqueue import NCARCluster
         from dask.distributed import Client
+        
         #start dask workers
         cluster=NCARCluster(memory="109GB", cores=36, project=self.project_code)
         cluster.adapt(minimum=self.cluster_min, maximum=self.cluster_max, wait_count=60)
         cluster
+        
         #print scripts
         print(cluster.job_script())
         #start client
@@ -189,10 +214,14 @@ class ComputeVariable:
             months (str): Array of month strings formatted with two digits.
             
         """
+        # create months
         formatter="{:02d}".format
         months=np.array(list(map(formatter, np.arange(self.month1, self.month2, 1))))
+        
+        # create years
         formatter="{:04d}".format
         years =np.array(list(map(formatter, np.arange(self.year1, self.year2, 1))))
+        
         return years, months
 
     def create_the_variable_files(self):
@@ -202,39 +231,52 @@ class ComputeVariable:
         """
         if self.daskstatus:
             self.activate_workers()
+            
         yrs, mos=self.generate_timestrings()
 
         for yr in yrs:
+            
             for mo in mos:
 
                 if self.variable == 'CAPE':
+                    
                     print(f"opening {yr} {mo} files for cape")
                     data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag=self.open_files(yr, mo)
+                    
                     print(f"generating u_func")
                     result_ufunc=apply_wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag)
+                    
                     print(f"starting cape for {yr} {mo}")
                     r=result_ufunc.compute(retries=10)
+                    
                     print(f"Saving file")
                     r.to_dataset(name='cape_cin_lcl_lfc').to_netcdf(f"/{self.destination}/wrf2d_CAPE_{yr}{mo}.nc")
                     r=r.close()
+                    
                     data_pstag=data_pstag.close()
                     data_tstag=data_tstag.close()
                     data_qstag=data_qstag.close()
                     data_zstag=data_zstag.close()
                     data_mapfc=data_mapfc.close()
                     data_sstag=data_sstag.close()
+                    
                     print(f"{yr} {mo} complete for CAPE")
 
                 if self.variable == 'CTT':
+                    
                     print(f"opening {yr} {mo} files for ctt")
                     data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag=self.open_files(yr, mo) 
+                    
                     print(f"generating u_func")
                     result_ufunc=apply_wrf_cloudtemp(data_pstag, data_tstag, data_qstag, data_cloudstag, data_zstag, data_mapfc, data_icestag)
+                    
                     print(f"starting ctt for {yr} {mo}")
                     r=result_ufunc.compute(retries=10)
+                    
                     print(f"Saving file")
                     r.to_dataset(name='ctt').to_netcdf(f"/{self.destination}/wrf2d_CTT_{yr}{mo}.nc")
                     r=r.close()
+                    
                     data_pstag=data_pstag.close()
                     data_tstag=data_tstag.close()
                     data_qstag=data_qstag.close()
@@ -242,23 +284,30 @@ class ComputeVariable:
                     data_zstag=data_zstag.close()
                     data_mapfc=data_mapfc.close()
                     data_icestag=data_icestag.close()
+                    
                     print(f"{yr} {mo} complete for CTT")
 
                 if self.variable == 'UH':
+                    
                     print(f"opening {yr} {mo}...")
                     data_zstag, data_wstag, data_ustag, data_vstag, data_mapfc=self.open_files(yr, mo)
+                    
                     print(f"generating u_func")
                     result_ufunc=apply_wrf_UH(data_zstag, data_mapfc, data_ustag, data_vstag, data_wstag, dx=self.dx, dy=self.dy, bottom=self.uh_bottom, top=self.uh_top)
+                    
                     print(f"starting UH for {yr} {mo}")
                     r=result_ufunc.compute(retries=10)
+                    
                     print(f"Saving file")
                     r.to_dataset(name='uh').to_netcdf(f"/{self.destination}/wrf2d_UH_{yr}{mo}.nc")
                     r.close()
+                    
                     data_zstag=data_zstag.close()
                     data_mapfc=data_mapfc.close()
                     data_ustag=data_ustag.close()
                     data_vstag=data_vstag.close()
                     data_wstag=data_wstag.close()           
+                    
                     print(f"{yr} {mo} complete")
 
 def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_sstag):
@@ -278,6 +327,7 @@ def wrf_cape(data_pstag, data_tstag, data_qstag, data_zstag, data_mapfc, data_ss
 
     """
     import os
+    # have to set this variable
     os.environ["PROJ_LIB"]="/glade/work/molina/miniconda3/envs/python-tutorial/share/proj/"
     import wrf
     return (wrf.cape_2d(pres_hpa=data_pstag.squeeze(), 
