@@ -3,7 +3,6 @@ import xarray as xr
 import pandas as pd
 import multiprocessing as mp
 
-
 class PreprocessData:
 
     """Class instantiation of PreprocessData:
@@ -19,21 +18,29 @@ class PreprocessData:
         num_cpus (int): Number of CPUs to use in a node for parallelizing extractions. Defaults to 36 (Cheyenne compute nodes contain 36).
         
     """
-
     def __init__(self, working_directory, stormpatch_path, climate, threshold1, mask=False, num_cpus=36):
 
+        # class attributes
         self.working_directory=working_directory
         self.stormpatch_path=stormpatch_path
+        
+        # sanity check
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future for climate option.")
         else:
             self.climate=climate
+        
+        # class attributes
         self.threshold1=threshold1
+        
+        # string help
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
         if self.mask:
             self.mask_str='mask'
+            
+        # cpus for parallelizing
         self.num_cpus=num_cpus
 
     def generate_time_full(self):
@@ -63,10 +70,13 @@ class PreprocessData:
         
         """
         if not self.mask:
+            
             data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
             data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.values.max(axis=(1,2)) > self.threshold1)[:,0])})
             data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
+            
         if self.mask:
+            
             data=xr.open_mfdataset(f"/{self.stormpatch_path}/{self.climate}_SP3hourly_{time.strftime('%Y%m')}*.nc", combine='by_coords')
             data_assemble=xr.Dataset({'grid':(['x'], np.argwhere(data.uh25_grid.where(data.mask).max(axis=(1,2), skipna=True).values > self.threshold1)[:,0])})
             data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc")
@@ -79,9 +89,12 @@ class PreprocessData:
         print(f"Starting jobs...")
         timearray=self.generate_time_full()
         pool1=mp.Pool(self.num_cpus)
+        
         for time in timearray:
+            
             print(f"Extracting {time.strftime('%Y-%m')} indices...")
             pool1.apply_async(self.create_data_indices, args=([time]))
+            
         pool1.close()
         pool1.join()
         print(f"Completed the jobs.")
@@ -192,13 +205,19 @@ class PreprocessData:
         
         """ 
         pool2=mp.Pool(self.num_cpus)
+        
         for mo in months:
+            
             if uh:
+                
                 print(f"Creating {self.month_translate(mo)} patches of threshold exceedances...")
                 pool2.apply_async(self.create_files_exceed_threshold, args=([mo]))
+                
             if nouh:
+                
                 print(f"Creating {self.month_translate(mo)} patches of threshold non-exceedances...")
                 pool2.apply_async(self.create_files_notexceed_threshold, args=([mo]))
+                
         pool2.close()
         pool2.join()
         print(f"Completed the jobs.")
@@ -221,6 +240,7 @@ class PreprocessData:
         data_wwnd_sev_1=[]; data_wwnd_sev_3=[]; data_wwnd_sev_5=[]; data_wwnd_sev_7=[]; data_uh25_sev_1=[]; data_uh03_sev_1=[]
 
         for time in time_temp:
+            
             print(f"opening files for {time.strftime('%Y')}{time.strftime('%m')}")
             data_mask=xr.open_mfdataset(
                 f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc",    
@@ -333,6 +353,7 @@ class PreprocessData:
                        'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), 'mask_sev_1':(['patch','y','x'], np.array(data_mask_sev_1_patches))})
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_uh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
+        
         print(f"Exceedances for {time.strftime('%m')} complete...")
 
     def create_files_notexceed_threshold(self, month_int):
@@ -353,6 +374,7 @@ class PreprocessData:
         data_wwnd_sev_1=[]; data_wwnd_sev_3=[]; data_wwnd_sev_5=[]; data_wwnd_sev_7=[]; data_uh25_sev_1=[]; data_uh03_sev_1=[]
 
         for time in time_temp:
+            
             print(f"opening files for {time.strftime('%Y')}{time.strftime('%m')}")
             data_mask=xr.open_mfdataset(
                 f"/{self.working_directory}/{self.climate}_indx{self.threshold1}_{self.mask_str}_{time.strftime('%Y')}{time.strftime('%m')}.nc",    
@@ -465,4 +487,5 @@ class PreprocessData:
                        'uh03_sev_1':(['patch','y','x'], np.array(data_uh03_sev_1_patches)), 'mask_sev_1':(['patch','y','x'], np.array(data_mask_sev_1_patches))})
 
         data_assemble.to_netcdf(f"/{self.working_directory}/{self.climate}_nonuh{self.threshold1}_{self.mask_str}_{time.strftime('%m')}.nc")
+        
         print(f"Non exceedances for {time.strftime('%m')} complete...")
