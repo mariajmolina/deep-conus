@@ -10,7 +10,6 @@ from shapely.ops import unary_union
 from shapely.prepared import prep
 from hagelslag.processing.tracker import label_storm_objects, extract_storm_patches
 
-
 class StormPatchCreator:
     
     """Class instantiation of StormPatchCreator:
@@ -41,7 +40,6 @@ class StormPatchCreator:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     """
-    
     def __init__(self, date1, date2, climate, destination_path, 
                  min_dbz=20, max_dbz=40, patch_radius=16, method='ws',
                  dbz_path='/gpfs/fs1/collections/rda/data/ds612.0/',
@@ -49,24 +47,35 @@ class StormPatchCreator:
                  variable=None, variable_path=None,
                  num_cpus=36):
         
+        # date range for analysis
         self.date1=date1
         self.date2=date2
+        
+        # sanity check
         if climate!='current' and climate!='future':
             raise Exception("Please enter current of future climate as choice analysis.")
         else:
             self.climate=climate
+            
+        # string help
         if self.climate=='current':
             self.filename='CTRL'
         if self.climate=='future':
             self.filename='PGW'
+        
+        # class attributes
         self.destination_path=destination_path
         self.min_dbz=min_dbz
         self.max_dbz=max_dbz
         self.patch_radius=patch_radius
+        
+        # storm object detection method
         if method!='ws' and method!='ew' and method!='hyst':
             raise Exception("Please enter ws, ew, or hyst method for identifying storm object.")
         else:
             self.method=method
+            
+        # additional class attributes
         self.dbz_path=dbz_path
         self.uh25_path=uh25_path
         self.uh03_path=uh03_path
@@ -187,21 +196,32 @@ class StormPatchCreator:
         the1=135; the2=650; the3=500; the4=1200
 
         pool=mp.Pool(self.num_cpus)
+        
         for num, thedate in enumerate(times_thisfile):
+            
             mon_1, mon_2=self.time_slice_help(thedate.month)
+            
             data_path=f'/{self.dbz_path}/{self.filename}radrefl/REFLC/wrf2d_d01_{self.filename}_REFLC_10CM_'+str(thedate.year)+mon_1+'-'+str(thedate.year)+mon_2+'.nc'
             data=xr.open_dataset(data_path)
+            
             print(num, f"start {times_thisfile[num].strftime('%Y%m%d')}")
+            
             data_refl=data.REFLC_10CM.sel(Time=slice(times_thisfile[num],times_thisfile[num]+timedelta(hours=23)))
+            
             data_reflec=data_refl.values[:,the1:the2,the3:the4]
             data_latitu=data.XLAT.values[the1:the2,the3:the4]
             data_longit=data.XLONG.values[the1:the2,the3:the4]
+            
             thetimes=total_times_indexes[np.where(total_times==pd.to_datetime(data_refl.Time.values[0]))[0][0]:
                                            np.where(total_times==pd.to_datetime(data_refl.Time.values[-1])+timedelta(hours=1))[0][0]]
+            
             thetimes=np.array([thetimes[i] for i in data_refl.Time.dt.hour])
+            
             if len(thetimes)==0:
                 raise Exception(f"Why is there no time for {times_thisfile[num].strftime('%Y-%m-%d')}")
+                
             pool.apply_async(self.create_patches_hourly, args=(num, data_reflec, data_latitu, data_longit, thetimes, times_thisfile))
+            
         pool.close()
         pool.join()
         print("completed")
@@ -225,9 +245,11 @@ class StormPatchCreator:
         thelabels=label_storm_objects(data, method=self.method, min_intensity=self.min_dbz, max_intensity=self.max_dbz, 
                                         min_area=1, max_area=100, max_range=1, increment=1, gaussian_sd=0)
         print(num, "Postlabel")
+        
         storm_objs=extract_storm_patches(label_grid=thelabels, data=data, x_grid=lons, y_grid=lats,
                                            times=thetimes, dx=1, dt=1, patch_radius=self.patch_radius)
         print(num, f"Done {times_thisfile[num].strftime('%Y-%m-%d')}")
+        
         data_assemble=xr.Dataset({
              'grid':(['starttime','y','x'],
                  np.array([other.timesteps[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1]==self.total_pixels()])),
@@ -252,7 +274,9 @@ class StormPatchCreator:
              'y_speed':(['starttime'],
                         np.array([other.v[0] for obj in storm_objs for other in obj if other.timesteps[0].shape[0]*other.timesteps[0].shape[1]==self.total_pixels()]))
             })
+        
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SPhourly_{times_thisfile[num].strftime('%Y%m%d')}.nc")
+        
         return(num)
 
     def create_patches_3H(self, datetime_value):
@@ -272,24 +296,29 @@ class StormPatchCreator:
         total_times=pd.date_range('2000-10-01','2013-10-01 00:00:00',freq='H')
         total_times_indexes=np.arange(0,total_times.shape[0],1)
         the1=135; the2=650; the3=500; the4=1200
+        
         # creation of blank lists for variable saving
         UH25_to_return=[]; UH03_to_return=[]; CT_to_return=[]; DZ_to_return=[]; MASK_to_return=[]
         ROW_to_return=[]; COL_to_return=[]; LAT_to_return=[]; LON_to_return=[]
         STM_to_return=[]; ETM_to_return=[]; XSPD_to_return=[]; YSPD_to_return=[]        
         
         print(f"doing {self.climate}: {datetime_value.strftime('%Y%m%d')}")
+        
         # open the original hourly storm patches that were created and saved
         file_storm=f"/{self.destination_path}/{self.climate}_SPhourly_{datetime_value.strftime('%Y%m%d')}.nc"
         data_storm=xr.open_dataset(file_storm)
+        
         #create boolean list of the values that are 3 hourly for variable extraction
         check_3H_datastorm=np.isin(data_storm.starttime.values,total_times_indexes[::3])
         
         # opening the variable data sets (UH and CTT)
         if not self.uh03_path or not self.uh25_path or not self.ctt_path:
             raise Exception("Please enter the paths to UH and CTT data.")
+            
         file_uh25=f"/{self.uh25_path}/wrf2d_UH_{datetime_value.strftime('%Y%m')}.nc"
         file_uh03=f"/{self.uh03_path}/wrf2d_UH_{datetime_value.strftime('%Y%m')}.nc"
         file_ctt =f"/{self.ctt_path}/wrf2d_CTT_{datetime_value.strftime('%Y%m')}.nc"
+        
         try:
             data_uh25=xr.open_dataset(file_uh25)
             data_uh03=xr.open_dataset(file_uh03)
@@ -305,7 +334,9 @@ class StormPatchCreator:
                                                                                                 datetime_value.month)[1]))+timedelta(hours=23), freq='3H'))]
 
         for storm_patch_file_idx, (storm_time, storm_time_indx) in enumerate(zip(check_3H_datastorm, data_storm.starttime.values)):
+            
             if storm_time:
+                
                 if self.is_land(land,
                                 data_storm.lons[storm_patch_file_idx,
                                                 np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[0][0],
@@ -349,8 +380,11 @@ class StormPatchCreator:
              'x_speed':  (['starttime'],np.array([int(obj) for obj in XSPD_to_return])),
              'y_speed':  (['starttime'],np.array([int(obj) for obj in YSPD_to_return]))
             })
+        
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SP3hourly_{datetime_value.strftime('%Y%m%d')}.nc")
+        
         print(f"completed {datetime_value.strftime('%Y%m%d')}")
+        
         return
 
     def parallelizing_3hourly_func(self):
@@ -360,9 +394,12 @@ class StormPatchCreator:
         """
         times_thisfile=self.generate_timestring()
         pool=mp.Pool(self.num_cpus)
+        
         for time_for_file in times_thisfile:
+            
             print(f"start {time_for_file.strftime('%Y%m%d')}")
             pool.apply_async(self.create_patches_3H, args=([time_for_file]))
+            
         pool.close()
         pool.join()
         print("completed")
@@ -390,13 +427,17 @@ class StormPatchCreator:
         STM_to_return=[]; ETM_to_return=[]; XSPD_to_return=[]; YSPD_to_return=[]
         
         print(f"doing {self.climate}, {self.variable}: {datetime_value.strftime('%Y%m%d')}")
+        
         file_storm=f"/{self.destination_path}/{self.climate}_SPhourly_{datetime_value.strftime('%Y%m%d')}.nc"
         data_storm=xr.open_dataset(file_storm)
+        
         # opening the variable data set
         if self.variable!='WMAX':
             file_var=f"/{self.variable_path}/{self.variable}/wrf2d_interp_{self.variable_translate()}_{datetime_value.strftime('%Y%m')}.nc"
+            
         if self.variable=='WMAX':
             file_var=f"/{self.variable_path}/{self.variable}/wrf2d_max_{self.variable_translate()}_{datetime_value.strftime('%Y%m')}.nc"
+            
         try:
             data_var=xr.open_dataset(file_var)
         except IOError:
@@ -405,13 +446,16 @@ class StormPatchCreator:
             return
         
         check_3H_datastorm=np.isin(data_storm.starttime.values,total_times_indexes[::3])
+        
         var_time_equiv_storm_patch=total_times_indexes[np.isin(total_times, 
                   pd.date_range(datetime_value.strftime('%Y-%m')+'-01',
                   pd.to_datetime(datetime_value.strftime('%Y-%m')+'-'+str(calendar.monthrange(datetime_value.year, datetime_value.month)[1]))+timedelta(hours=23),
                   freq='3H'))]
 
         for storm_patch_file_idx, (storm_time, storm_time_indx) in enumerate(zip(check_3H_datastorm, data_storm.starttime.values)):
+            
             if storm_time:
+                
                 if self.is_land(land,
                                 data_storm.lons[storm_patch_file_idx,
                                                 np.where(data_storm.grid[storm_patch_file_idx,:,:]==data_storm.grid[storm_patch_file_idx,:,:].max())[0][0],
@@ -423,6 +467,7 @@ class StormPatchCreator:
                     if self.variable!='WMAX':
                         temp_var=data_var.levels[np.where(var_time_equiv_storm_patch==storm_time_indx)[0],:,the1:the2,the3:the4].values[0,:,:,:]
                         var_to_return.append(temp_var[:, data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
+                        
                     if self.variable=='WMAX':
                         temp_var=data_var.max_in_vert[np.where(var_time_equiv_storm_patch==storm_time_indx)[0],the1:the2,the3:the4].values[0,:,:]
                         var_to_return.append(temp_var[data_storm.row_indices[storm_patch_file_idx].values, data_storm.col_indices[storm_patch_file_idx].values])
@@ -439,6 +484,7 @@ class StormPatchCreator:
                     YSPD_to_return.append(data_storm.coords['y_speed'][storm_patch_file_idx].values)
 
         if self.variable!='WMAX':
+            
             data_assemble=xr.Dataset({
                  'var_grid':(['starttime','levels','y','x'],np.array([obj for obj in var_to_return])),
                  'dbz_grid':(['starttime','y','x'],np.array([obj for obj in DZ_to_return])),
@@ -457,6 +503,7 @@ class StormPatchCreator:
                 })
             
         if self.variable=='WMAX':
+            
             data_assemble=xr.Dataset({
                  'var_grid':(['starttime','y','x'],np.array([obj for obj in var_to_return])),
                  'dbz_grid':(['starttime','y','x'],np.array([obj for obj in DZ_to_return])),
@@ -474,7 +521,9 @@ class StormPatchCreator:
                 })            
 
         data_assemble.to_netcdf(f"/{self.destination_path}/{self.climate}_SP3hourly_{self.variable_translate().lower()}_{datetime_value.strftime('%Y%m%d')}.nc")
+        
         print(f"completed {datetime_value.strftime('%Y%m%d')}")
+        
         return
 
     def parallelizing_3Hvariable_func(self):
@@ -484,12 +533,15 @@ class StormPatchCreator:
         """
         if not self.variable_path:
             raise Exception(f"Please enter the directory path for {self.variable}.")
+            
         _=self.variable_translate()
         times_thisfile=self.generate_timestring()
         pool=mp.Pool(self.num_cpus)
+        
         for time_for_file in times_thisfile:
             print(f"start {time_for_file.strftime('%Y%m%d')}")
             pool.apply_async(self.create_patches_variable, args=([time_for_file]))
+            
         pool.close()
         pool.join()
         print("completed")
