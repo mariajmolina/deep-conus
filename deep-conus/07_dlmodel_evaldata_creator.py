@@ -2,7 +2,6 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-
 class CreateEvaluationData:
     
     """Class instantiation of CreateEvaluationData:
@@ -23,18 +22,22 @@ class CreateEvaluationData:
         Exceptions: Checks whether correct values were input for ``climate``, ``method``, and ``project_code``.
     
     """
-    
     def __init__(self, climate, variables, directory, mask=False, unbalanced=False, validation=False):
         
+        # sanity check
         if climate!='current' and climate!='future':
             raise Exception("Please enter current or future as string for climate period selection.")
         else:
             self.climate=climate
+            
+        # class attributes
         self.method='random'
         self.variables=variables
         self.directory=directory
         self.unbalanced=unbalanced
         self.validation=validation
+        
+        # string help
         self.mask=mask
         if not self.mask:
             self.mask_str='nomask'
@@ -126,33 +129,48 @@ class CreateEvaluationData:
         """Open the testing data files and apply the respective parsing method to create the test subset.
             
         """
+        # run methods
         self.add_dbz()
         self.add_uh25()
         self.add_uh03()
         self.add_wmax()
         self.add_ctt()
         self.add_mask()
+        
         for var in self.variables:
+            
             print(f"Opening {var}...")
+            
             if not self.unbalanced:
+                
                 if not self.validation:
+                    
                     data=xr.open_mfdataset(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
                         parallel=True, combine='by_coords')
+                    
                 if self.validation:
+                    
                     data=xr.open_mfdataset(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_valid.nc',
-                        parallel=True, combine='by_coords')                    
+                        parallel=True, combine='by_coords')   
+                    
             if self.unbalanced:
+                
                 if not self.validation:
+                    
                     data=xr.open_mfdataset(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
                         parallel=True, combine='by_coords')
+                    
                 if self.validation:
+                    
                     data=xr.open_mfdataset(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_valid.nc',
-                        parallel=True, combine='by_coords')                    
+                        parallel=True, combine='by_coords')    
+                    
             if self.method=='random':
+                
                 self.random_method(data, var)
         return
 
@@ -166,32 +184,50 @@ class CreateEvaluationData:
         
         """
         for num, (i, j) in enumerate(zip([0,100000,200000,300000,400000,500000], [100000,200000,300000,400000,500000,600000])):
+            
             np.random.seed(0)
             select_data=np.random.permutation(data.coords['b'].shape[0])[i:j]
+            
             print(f"Opening {num+1}...")
+            
             if len(data.X_test.dims)==4:
+                
                 data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y','features')[select_data,:,:,:]),
                                           'X_test_label':(['b'], data.X_test_label[select_data])})
+                
             if len(data.X_test.dims)==3:
+                
                 data_assemble=xr.Dataset({'X_test':(['b','x','y','features'], data.X_test.transpose('b','x','y')[select_data,:,:].expand_dims('features',axis=3)),
                                           'X_test_label':(['b'], data.X_test_label[select_data])})
+                
             print(f"Saving {num+1}...")
+            
             if not self.unbalanced:
+                
                 if not self.validation:
+                    
                     data_assemble.to_netcdf(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
+                
                 if self.validation:
+                    
                     data_assemble.to_netcdf(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_valid.nc')                    
+                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_valid.nc')             
+                    
             if self.unbalanced:
+                
                 if not self.validation:
+                    
                     data_assemble.to_netcdf(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
+                    
                 if self.validation:
+                    
                     data_assemble.to_netcdf(
                         f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced_valid.nc')                    
         data_assemble=data_assemble.close()
         data=data.close()
+        
         return
 
     def month_translate(self):
