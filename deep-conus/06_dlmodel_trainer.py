@@ -11,7 +11,6 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-
 class DLTraining:
 
     """Class instantiation of DLTraining:
@@ -46,6 +45,7 @@ class DLTraining:
         validation_split (float): The percent split of training data used for validation. Defaults to 0.1 [e.g., 10% of training data]).
         batch_size (int): Size of batches used during training. Defaults to 128.
         epochs (int): The number of epochs to run through during training. Defaults to 10.
+        weight_seed (int): The random seed to set for weight initialization. Defaults to ``0``.
         pool_method (str): Pooling method. Defaults to ``mean`` (also have ``max`` available).
         batch_norm (boolean): Whether to apply batch normalization after every convolutional layer. Defaults to ``True``.
         spatial_drop (boolean): Whether to apply spatial dropout (at 30%) after every convolutional layer. Defaults to ``True``.
@@ -68,7 +68,7 @@ class DLTraining:
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
-                 validation_split=0.1, batch_size=128, epochs=10, 
+                 validation_split=0.1, batch_size=128, epochs=10, weight_seed=0,
                  pool_method='mean', batch_norm=True, spatial_drop=True, spatial_drop_perc=0.3,
                  additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
 
@@ -125,6 +125,7 @@ class DLTraining:
         self.validation_split=validation_split
         self.batch_size=batch_size
         self.epochs=epochs
+        self.weight_seed=weight_seed
         
         if pool_method!='mean' and pool_method!='max':
             raise Exception('``pool_method`` options available are ``mean`` and ``max``.')
@@ -285,18 +286,24 @@ class DLTraining:
         
         """
         model=Sequential()
+        
+        initializer = tf.keras.initializers.glorot_uniform(seed=self.weight_seed)
 
         model.add(Conv2D(self.conv_1_mapnum, 
                    (self.filter_width, self.filter_width),
                    input_shape=data.shape[1:], 
                    strides=self.strides_len,
                    padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_1_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                   dilation_rate=1, activation=self.acti_1_func, use_bias=True,
+                   kernel_initializer=initializer,
+                   bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
+        if self.spatial_drop:
+            model.add(Dropout(rate=self.spatial_drop_perc))
+        
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                          center=True, scale=True, 
@@ -305,9 +312,6 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -320,12 +324,16 @@ class DLTraining:
                    (self.filter_width, self.filter_width),
                    strides=self.strides_len,
                    padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_2_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                   dilation_rate=1, activation=self.acti_2_func, use_bias=True,
+                   kernel_initializer=initializer,
+                   bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
+        if self.spatial_drop:
+            model.add(Dropout(rate=self.spatial_drop_perc))
+        
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                          center=True, scale=True, 
@@ -334,9 +342,6 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -349,12 +354,16 @@ class DLTraining:
                    (self.filter_width, self.filter_width),
                    strides=self.strides_len,
                    padding='same', data_format='channels_last',
-                   dilation_rate=1, activation=self.acti_3_func, use_bias=True, 
-                   kernel_initializer='glorot_uniform', bias_initializer='zeros', 
+                   dilation_rate=1, activation=self.acti_3_func, use_bias=True,
+                   kernel_initializer=initializer,
+                   bias_initializer='zeros', 
                    kernel_regularizer=l2(0.001), bias_regularizer=None, 
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
+        if self.spatial_drop:
+            model.add(Dropout(rate=self.spatial_drop_perc))
+        
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
                                          center=True, scale=True, 
@@ -363,9 +372,6 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
-
-        if self.spatial_drop:
-            model.add(SpatialDropout2D(rate=self.spatial_drop_perc, data_format='channels_last'))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -377,8 +383,14 @@ class DLTraining:
         model.add(Flatten())
         
         if self.additional_dense:
-            model.add(Dense(units=self.additional_dense_units, activation=self.additional_dense_activation))
+            model.add(Dense(units=self.additional_dense_units, activation=self.additional_dense_activation,
+                            kernel_initializer=initializer,
+                            bias_initializer='zeros', 
+                            kernel_regularizer=l2(0.001), bias_regularizer=None))
 
+        if self.spatial_drop:
+            model.add(Dropout(rate=self.spatial_drop_perc))
+            
         if self.batch_norm:
             model.add(BatchNormalization(axis=1, momentum=0.99, epsilon=0.001, 
                                          center=True, scale=True, 
@@ -387,8 +399,6 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
-        if self.spatial_drop:
-            model.add(Dropout(rate=self.spatial_drop_perc))
             
         model.add(Dense(units=self.denseshape, activation=self.output_activation))
 
@@ -407,6 +417,7 @@ class DLTraining:
             label (numpy array): Corresponding labels of data.
             
         """
+        #with tf.device("gpu:0"):
         history=model.fit(x=data, 
                           y=label, 
                           validation_split=self.validation_split, 
