@@ -69,7 +69,7 @@ class DLTraining:
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10, weight_seed=0,
-                 pool_method='mean', batch_norm=True, spatial_drop=True, spatial_drop_perc=0.3,
+                 pool_method='mean', drop_before_batch=False, batch_norm=True, spatial_drop=True, spatial_drop_perc=0.3,
                  additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
 
         self.working_directory=working_directory
@@ -131,6 +131,7 @@ class DLTraining:
             raise Exception('``pool_method`` options available are ``mean`` and ``max``.')
         else:
             self.pool_method=pool_method
+        self.drop_before_batch=drop_before_batch
         self.batch_norm=batch_norm
         self.spatial_drop=spatial_drop
         self.spatial_drop_perc=spatial_drop_perc
@@ -301,8 +302,10 @@ class DLTraining:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
-        if self.spatial_drop:
-            model.add(Dropout(rate=self.spatial_drop_perc))
+        if self.drop_before_batch:
+        
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
         
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
@@ -312,6 +315,11 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
+            
+        if not self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -331,8 +339,10 @@ class DLTraining:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
-        if self.spatial_drop:
-            model.add(Dropout(rate=self.spatial_drop_perc))
+        if self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
         
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
@@ -342,6 +352,11 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
+            
+        if not self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -361,8 +376,10 @@ class DLTraining:
                    activity_regularizer=None, kernel_constraint=None, 
                    bias_constraint=None))
 
-        if self.spatial_drop:
-            model.add(Dropout(rate=self.spatial_drop_perc))
+        if self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
         
         if self.batch_norm:
             model.add(BatchNormalization(axis=3, momentum=0.99, epsilon=0.001, 
@@ -372,6 +389,11 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
+            
+        if not self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(SpatialDropout2D(rate=self.spatial_drop_perc))
 
         if self.pool_method=='mean':
             model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='same', 
@@ -388,8 +410,10 @@ class DLTraining:
                             bias_initializer='zeros', 
                             kernel_regularizer=l2(0.001), bias_regularizer=None))
 
-        if self.spatial_drop:
-            model.add(Dropout(rate=self.spatial_drop_perc))
+        if self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(Dropout(rate=self.spatial_drop_perc))
             
         if self.batch_norm:
             model.add(BatchNormalization(axis=1, momentum=0.99, epsilon=0.001, 
@@ -399,6 +423,11 @@ class DLTraining:
                                          moving_variance_initializer='ones',
                                          beta_regularizer=None, gamma_regularizer=None,
                                          beta_constraint=None, gamma_constraint=None))
+            
+        if not self.drop_before_batch:
+            
+            if self.spatial_drop:
+                model.add(Dropout(rate=self.spatial_drop_perc))
             
         model.add(Dense(units=self.denseshape, activation=self.output_activation))
 
