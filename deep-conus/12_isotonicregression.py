@@ -6,7 +6,6 @@ from sklearn.isotonic import IsotonicRegression
 import matplotlib.pyplot as plt
 import pickle
 
-
 class IsotonicRegress:
     
     """Class instantiation of IsotonicRegress. 
@@ -34,7 +33,6 @@ class IsotonicRegress:
         print_sequential (boolean): Whether the sequential function calls to save files will output status statements. Defaults to ``True``.
     
     """
-    
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
                  mask=False, mask_train=False, unbalanced=True, validation=True,
                  random_choice=None, month_choice=None, season_choice=None, year_choice=None, 

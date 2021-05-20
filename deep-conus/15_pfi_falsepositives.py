@@ -23,7 +23,6 @@ def grab_all_indices(variable, total_perm, perc_min, perc_max):
         Xarray dataset containing the indices of the permutations for cases the >perc_max, <perc_min, and > perc_min & < perc_max.
     
     """
-
     li_1 = []
     for p_num in range(total_perm):
         path = f'{model25_dir_future}/scalar_results_nomask_model25_random1_pfivar{variable}_perm{p_num+1}.csv'

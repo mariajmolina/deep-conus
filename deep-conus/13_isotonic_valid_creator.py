@@ -2,7 +2,6 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-
 class CreateIsotonicData:
     
     """Class instantiation of CreateIsotonicData:
@@ -28,7 +27,6 @@ class CreateIsotonicData:
         * Add method for ``month``, ``season``, and ``year``.
     
     """
-
     def __init__(self, climate, method, variables, directory, mask=False, unbalanced=True, validation=True, season_choice=None):
         
         if climate!='current' and climate!='future':

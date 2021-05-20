@@ -12,7 +12,6 @@ from matplotlib.pyplot import cm
 from metpy.plots import colortables
 import matplotlib.colors as colors
 
-
 class StudyVisualizer:
     
     """Class instantiation of StudyVisualizer:
@@ -45,7 +44,6 @@ class StudyVisualizer:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     """
-
     def __init__(self, climate, variable1, dist_directory, model_directory, model_num, comp_directory, 
                  unbalanced=False, validation=False,
                  variable2=None, mask=False, random_choice=None, outliers=False):

@@ -1,7 +1,8 @@
 import keras
 import tensorflow as tf
-from keras import backend as K
-from keras.backend.tensorflow_backend import set_session
+#from keras import backend as K
+from tensorflow.keras import backend as K
+#from keras.backend.tensorflow_backend import set_session
 from keras.models import load_model
 from scipy.ndimage import gaussian_filter
 import xarray as xr
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 from metpy.plots import colortables
 import matplotlib.colors as colors
-
+tf.compat.v1.disable_eager_execution()
 
 class InterpretDLModel:
     
@@ -45,7 +46,6 @@ class InterpretDLModel:
         Exceptions: Checks whether correct values were input for ``climate`` and ``method``.
         
     """
-
     def __init__(self, climate, variable, dist_directory, model_directory, model_num, comp_directory, 
                  mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
                  random_choice=None, outliers=False):
@@ -406,6 +406,52 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
             ax.yaxis.set_ticklabels([])
             ax.text(16, 16, conv_filter, fontsize=14)
         plt.suptitle("Final Convolution Filter Saliency Maps", fontsize=14, y=0.98)
+        plt.show()
+        
+    def preview_inputgrad(self, composite_group, input_index, dl_model, test_data):
+        
+        """Preview the deep learning model input using input x gradient maps.
+        
+        Args:
+            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
+                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
+                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
+                                   true negative < 1% probability ``tn_01``.
+            input_index (int): The example's index to to preview.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
+        
+        """
+        testdata=test_data[composite_group]
+        
+        fig, axes=plt.subplots(4, 8, figsize=(16, 8), sharex=True, sharey=True)
+        plt.subplots_adjust(0.02, 0.02, 0.96, 0.94, wspace=0,hspace=0)
+        
+        for conv_filter, ax in enumerate(axes.ravel()):
+            print(conv_filter)
+            out_diff=K.abs(dl_model.layers[-4].output[0, conv_filter] - 1)     #dense layer that was added
+            grad=K.gradients(out_diff, [dl_model.input])[0]
+            grad/=K.maximum(K.std(grad), K.epsilon())
+            iterate=K.function([dl_model.input, K.learning_phase()], [out_diff, grad])
+            input_img_data_neuron_grad=np.zeros((1, 32, 32, 20))
+            input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-6])
+            out_loss, out_grad=iterate([input_img_data_neuron, 1])
+
+            #DBZ
+            levels=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80]
+            cmap_dbz = colortables.get_colortable('NWSReflectivity')
+            ax.contourf(test_data[composite_group][input_index, :, :, self.extract_dbz_index(testdata)] * self.dbz_std + self.dbz_mean, 
+                        cmap=cmap_dbz, levels=levels, alpha=0.2)
+
+            ax.contour(gaussian_filter(
+                test_data[composite_group][input_index,:,:,self.extract_variable_index(testdata)]*(-out_grad[0,:,:,self.extract_variable_index(testdata)]),1), 
+                       [-3, -2, -1, 1, 2, 3], vmin=-3, vmax=3, cmap="seismic", linewidths=3.0)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.xaxis.set_ticklabels([])
+            ax.yaxis.set_ticklabels([])
+            ax.text(16, 16, conv_filter, fontsize=14)
+        plt.suptitle("Final Convolution Filter Input x Gradient Maps", fontsize=14, y=0.98)
         plt.show()
 
     def save_saliency_maps(self, composite_group, input_index, dl_model, test_data):

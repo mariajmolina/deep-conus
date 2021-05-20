@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 class VariableTable:
     
     """Class instantiation of VariableTable:
@@ -26,7 +25,6 @@ class VariableTable:
         Exceptions: Checks whether correct values were input for ``climate``.
         
     """
-    
     def __init__(self, climate, variables, var_directory, eval_directory, model_num, mask=False, 
                  unbalanced=True, validation=False, random_choice=None, outliers=False,
                  boot_num=1000, boot_min=2.5, boot_max=97.5):
