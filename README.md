@@ -1,5 +1,9 @@
 # deep-conus
-Repository containing scripts associated with NCAR Advanced Study Program deep learning project (2019-2020) exploring the robustness of a convolutional neural network (CNN) on classifying North America convection in a changing climate.
+Repository containing scripts associated with NCAR Advanced Study Program deep learning project (2019-2021) exploring the robustness of a convolutional neural network (CNN) on classifying North America convection in a changing climate.
+
+------------
+
+Molina, M. J., D. J. Gagne, and A. F. Prein (under review): A benchmark to test generalization capabilities of deep learning methods to classify severe convective storms in a changing climate, Earth and Space Science.
 
 ------------
 
