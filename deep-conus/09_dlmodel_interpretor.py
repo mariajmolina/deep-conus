@@ -36,8 +36,7 @@ class InterpretDLModel:
         comp_directory (str): Directory where the composite files were saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
-        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
-        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``.
         isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
         outliers (boolean): Whether evaluating outlier storms. Defaults to ``True``.
@@ -47,7 +46,7 @@ class InterpretDLModel:
         
     """
     def __init__(self, climate, variable, dist_directory, model_directory, model_num, comp_directory, 
-                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False,
+                 mask=False, mask_train=False, unbalanced=False, isotonic=False,
                  random_choice=None, outliers=False):
         
         if climate!='current' and climate!='future':
@@ -67,7 +66,6 @@ class InterpretDLModel:
             self.mask_str='mask'
         self.mask_train=mask_train
         self.unbalanced=unbalanced
-        self.validation=validation
         self.isotonic=isotonic
         self.random_choice=random_choice
         self.outliers = outliers
@@ -120,19 +118,15 @@ class InterpretDLModel:
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(
+            
+            data=xr.open_dataset(
                  f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(
-            f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_valid.nc")
+            
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(
-f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")       
-            if self.validation:
-                data=xr.open_dataset(
-f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(
+                f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            
         self.variable_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.variable_std=data.train_std.values[self.convert_string_height()[0][0]]
 
@@ -142,16 +136,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist.nc")
+            
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            if self.validation:
-                data=xr.open_dataset(
-                    f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_eu_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            
         self.eu_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.eu_std=data.train_std.values[self.convert_string_height()[0][0]]
 
@@ -161,16 +152,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist.nc")
+                
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            if self.validation:
-                data=xr.open_dataset(
-                    f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_ev_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                
         self.ev_mean=data.train_mean.values[self.convert_string_height()[0][0]]
         self.ev_std=data.train_std.values[self.convert_string_height()[0][0]]
 
@@ -180,16 +168,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist.nc")
+                
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            if self.validation:
-                data=xr.open_dataset(
-                    f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh03_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                
         self.uh03_mean=data['train_mean'].values[0]
         self.uh03_std=data['train_std'].values[0]
 
@@ -199,16 +184,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist.nc")
+            
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            if self.validation:
-                data=xr.open_dataset(
-                    f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_uh25_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            
         self.uh25_mean=data['train_mean'].values[0]
         self.uh25_std=data['train_std'].values[0]
 
@@ -218,16 +200,13 @@ f"/{self.dist_directory}/{self.climate}_{self.variable_translate().lower()}_{sel
         
         """
         if not self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist.nc")
-            if self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist.nc")
+        
         if self.unbalanced:
-            if not self.validation:
-                data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            if self.validation:
-                data=xr.open_dataset(
-                    f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+            
+            data=xr.open_dataset(f"/{self.dist_directory}/{self.climate}_dbz_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            
         self.dbz_mean=data['train_mean'].values[0]
         self.dbz_std=data['train_std'].values[0]
 

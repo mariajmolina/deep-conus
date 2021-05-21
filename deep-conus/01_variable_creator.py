@@ -25,7 +25,6 @@ class ComputeVariable:
         uh_bottom, uh_top (float): Bottom and top vertical levels for updraft helicity calculation. Defaults to 2000.0 and 5000.0 meters.
 
     """
-    
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination,
                  rda_path='/gpfs/fs1/collections/rda/data/ds612.0/',
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40, 

@@ -26,7 +26,7 @@ class VariableTable:
         
     """
     def __init__(self, climate, variables, var_directory, eval_directory, model_num, mask=False, 
-                 unbalanced=True, validation=False, random_choice=None, outliers=False,
+                 unbalanced=True, random_choice=None, outliers=False,
                  boot_num=1000, boot_min=2.5, boot_max=97.5):
         
         if climate!='current' and climate!='future':
@@ -43,7 +43,6 @@ class VariableTable:
         if self.mask:
             self.mask_str='mask'
         self.unbalanced=unbalanced
-        self.validation=validation
         self.random_choice=random_choice
         self.outliers=outliers
         self.boot_num = boot_num

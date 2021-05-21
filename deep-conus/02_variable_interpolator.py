@@ -26,7 +26,6 @@ class InterpolateVariable:
         Exceptions: Checks whether correct values were input for ``climate``, ``variables``, and ``project_code``.
 
     """
-        
     def __init__(self, climate, variable, month_start, month_end, year_start, year_end, destination, 
                  rda_path='/gpfs/fs1/collections/rda/data/ds612.0/',
                  start_dask=True, project_code=None, cluster_min=10, cluster_max=40):

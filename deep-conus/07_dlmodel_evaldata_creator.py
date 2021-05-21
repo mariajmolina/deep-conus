@@ -15,14 +15,13 @@ class CreateEvaluationData:
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
         directory (str): Directory where the deep learning files are saved and where these test data subsets will be saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
-        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
-        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``.
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``.
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate``, ``method``, and ``project_code``.
     
     """
-    def __init__(self, climate, variables, directory, mask=False, unbalanced=False, validation=False):
+    def __init__(self, climate, variables, directory, mask=False, unbalanced=False):
         
         # sanity check
         if climate!='current' and climate!='future':
@@ -31,11 +30,9 @@ class CreateEvaluationData:
             self.climate=climate
             
         # class attributes
-        self.method='random'
         self.variables=variables
         self.directory=directory
         self.unbalanced=unbalanced
-        self.validation=validation
         
         # string help
         self.mask=mask
@@ -142,32 +139,16 @@ class CreateEvaluationData:
             print(f"Opening {var}...")
             
             if not self.unbalanced:
-                
-                if not self.validation:
                     
-                    data=xr.open_mfdataset(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
-                        parallel=True, combine='by_coords')
-                    
-                if self.validation:
-                    
-                    data=xr.open_mfdataset(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_valid.nc',
-                        parallel=True, combine='by_coords')   
+                data=xr.open_mfdataset(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest.nc',
+                    parallel=True, combine='by_coords')
                     
             if self.unbalanced:
-                
-                if not self.validation:
                     
-                    data=xr.open_mfdataset(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
-                        parallel=True, combine='by_coords')
-                    
-                if self.validation:
-                    
-                    data=xr.open_mfdataset(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_valid.nc',
-                        parallel=True, combine='by_coords')    
+                data=xr.open_mfdataset(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
+                    parallel=True, combine='by_coords')
                     
             if self.method=='random':
                 
@@ -204,27 +185,14 @@ class CreateEvaluationData:
             
             if not self.unbalanced:
                 
-                if not self.validation:
-                    
-                    data_assemble.to_netcdf(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
-                
-                if self.validation:
-                    
-                    data_assemble.to_netcdf(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_valid.nc')             
+                data_assemble.to_netcdf(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}.nc')
                     
             if self.unbalanced:
                 
-                if not self.validation:
-                    
-                    data_assemble.to_netcdf(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
-                    
-                if self.validation:
-                    
-                    data_assemble.to_netcdf(
-                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced_valid.nc')                    
+                data_assemble.to_netcdf(
+                    f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
+                                        
         data_assemble=data_assemble.close()
         data=data.close()
         

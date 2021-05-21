@@ -27,8 +27,7 @@ class EvaluateDLModel:
         eval_directory (str): Directory where evaluation files will be saved.
         mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
-        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``. 
-        validation (boolean): Whether to extract a validation set from the original unbalanced dataset. Defaults to ``False``. 
+        unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``.
         isotonic (boolean): Whether model has an isotonic regression applied to output. Defaults to ``False``.
         bin_res (float): Bin resolution for the reliability curve. Defaults to ``0.05``.
         random_choice (int): The integer the respective ``random`` method file was saved as. Defaults to ``None``.
@@ -54,7 +53,7 @@ class EvaluateDLModel:
         
     """
     def __init__(self, climate, method, variables, var_directory, model_directory, model_num, eval_directory, 
-                 mask=False, mask_train=False, unbalanced=False, validation=False, isotonic=False, bin_res=0.05,
+                 mask=False, mask_train=False, unbalanced=False, isotonic=False, bin_res=0.05,
                  random_choice=None, obs_threshold=0.5, 
                  print_sequential=True, perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
                  currenttrain_futuretest=True,
@@ -79,7 +78,6 @@ class EvaluateDLModel:
         self.eval_directory=eval_directory
         self.mask_train=mask_train
         self.unbalanced=unbalanced
-        self.validation=validation
         self.isotonic=isotonic
         self.bin_res=bin_res
         
@@ -207,28 +205,14 @@ class EvaluateDLModel:
                 
                 if not self.unbalanced:
                     
-                    if not self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
+                    the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
                     
-                    if self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_valid.nc')                        
-                
                 if self.unbalanced:
                     
-                    if not self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
+                    the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
                     
-                    if self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc') 
-        
         return the_data
 
     def open_qv_files(self):
@@ -248,28 +232,14 @@ class EvaluateDLModel:
                 
                 if not self.unbalanced:
                     
-                    if not self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
+                    the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}.nc')
                     
-                    if self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_valid.nc')                        
-                
                 if self.unbalanced:
                     
-                    if not self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
+                    the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
                     
-                    if self.validation:
-                        
-                        the_data[var]=xr.open_dataset(
-                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_valid.nc') 
-        
         return the_data
 
     def save_qv_files(self):
@@ -279,30 +249,18 @@ class EvaluateDLModel:
         """
         if not self.unbalanced:
             
-            if not self.validation:
-                
-                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
-                
-            if self.validation:
-                
-                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_valid.nc")
+            data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist.nc")
                 
         if self.unbalanced:
-            
-            if not self.validation:
                 
-                if not self.currenttrain_futuretest:
+            if not self.currenttrain_futuretest:
                 
-                    data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
                     
-                if self.currenttrain_futuretest:
+            if self.currenttrain_futuretest:
                     
-                    data_dist=xr.open_dataset(
-                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
-                
-            if self.validation:
-                
-                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced_valid.nc")
+                data_dist=xr.open_dataset(
+                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
                 
         qv1_mean=data_dist.train_mean.values[0]
         qv1_std=data_dist.train_std.values[0]
