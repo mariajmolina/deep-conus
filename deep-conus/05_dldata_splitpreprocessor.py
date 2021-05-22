@@ -25,7 +25,7 @@ class SplitAndStandardize:
         
     """
     def __init__(self, climate, variable, percent_split, working_directory, threshold1, mask=False, unbalanced=False,
-                 currenttrain_futuretest=False):
+                 currenttrain_futuretest=False, kfold_total=5, kfold_indx=None, use_kfold=False):
 
         # assigning class attributes
         if climate!='current' and climate!='future':
@@ -150,6 +150,16 @@ class SplitAndStandardize:
         
         # boolean for training with current, testing with future, standardization
         self.currenttrain_futuretest=currenttrain_futuretest
+        
+        if self.currenttrain_futuretest:
+            if self.climate == 'current':
+                raise Exception("Set currenttrain_futuretest to False!")
+        
+        # for k-fold cross validation
+        self.use_kfold=use_kfold
+        if self.use_kfold:
+            self.kfold_total=kfold_total
+            self.kfold_indx=kfold_indx
 
     def variable_translate(self):
         
@@ -423,6 +433,82 @@ class SplitAndStandardize:
             test_label=np.random.permutation(test_label)
             
             return train_data, test_data, train_label, test_label
+        
+    def create_traintest_unbalanced_kfold(self, data_b, data_a, return_label=False):
+        
+        """This function performs creates and permutes training and testing data for k-fold cross validation.
+        
+        Args:
+            data_b (numpy array): Concatenated six months of data exceeding the threshold.
+            data_a (numpy array): Concatenated six months of data below the threshold.
+            return_label (boolean): Whether to return the label data or not. Defaults to ``False``.
+            
+        Returns:
+            train_data, test_data or train_data, test_data, train_label, test_label (numpy arrays): The training and testing data, and if
+            return_label=``True``, the training and testing data labels for supervised learning.
+            
+        """
+        # helper functions for indices of k-fold cross validation
+        kgroups = np.arange(0, self.kfold_total, 1)
+        kgroups_leftover = np.delete(kgroups, self.kfold_indx)
+        
+        # train above UH threshold (stratified sampling)
+        np.random.seed(0)
+        select_data=np.hstack(np.array(np.array_split(np.random.permutation(
+            data_a.shape[0]), self.kfold_total))[[kgroups_leftover[0],kgroups_leftover[1],kgroups_leftover[2],kgroups_leftover[3]]])
+        train_above=data_a[select_data]
+        
+        # train below UH threshold (stratified sampling)
+        np.random.seed(0)
+        select_data=np.hstack(np.array(np.array_split(np.random.permutation(
+            data_b.shape[0]), self.kfold_total))[[kgroups_leftover[0],kgroups_leftover[1],kgroups_leftover[2],kgroups_leftover[3]]])
+        train_below=data_b[select_data]
+        
+        # test above UH threshold (stratified sampling)
+        np.random.seed(0)
+        select_data=np.hstack(np.array(np.array_split(np.random.permutation(data_a.shape[0]), self.kfold_total))[[self.kfold_indx]])
+        test_above=data_a[select_data]
+        
+        # test below UH threshold (stratified sampling)
+        np.random.seed(0)
+        select_data=np.hstack(np.array(np.array_split(np.random.permutation(data_b.shape[0]), self.kfold_total))[[self.kfold_indx]])
+        test_below=data_b[select_data]
+                
+        train_data=np.vstack([train_above, train_below])
+        
+        if return_label:
+            train_above_label=np.ones(train_above.shape[0])
+            train_below_label=np.zeros(train_below.shape[0])
+            train_label=np.hstack([train_above_label, train_below_label])
+            
+        test_data=np.vstack([test_above, test_below])
+        
+        if return_label:
+            test_above_label=np.ones(test_above.shape[0])
+            test_below_label=np.zeros(test_below.shape[0])
+            test_label=np.hstack([test_above_label, test_below_label])
+            
+        # finally, permute the data that has been merged and properly balanced
+        np.random.seed(10)
+        train_data=np.random.permutation(train_data)
+        
+        np.random.seed(10)
+        test_data=np.random.permutation(test_data)
+        
+        if not return_label:
+            
+            return train_data, test_data
+
+        if return_label:
+                
+            np.random.seed(10)
+            train_label=np.random.permutation(train_label)
+            
+            np.random.seed(10)
+            test_label=np.random.permutation(test_label)
+            
+            return train_data, test_data, train_label, test_label
+        
 
     def standardize_scale_apply(self, data):
         
@@ -439,15 +525,25 @@ class SplitAndStandardize:
             data[np.isinf(data)]=0.0
             
         if not self.currenttrain_futuretest:
+            
             return np.divide((data - np.nanmean(data)), np.nanstd(data))
         
         if self.currenttrain_futuretest:
             
             if self.unbalanced:
-                temp_stat = xr.open_dataset(
-                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                
+                if not self.use_kfold:
+                
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                    
+                if self.use_kfold:
+                    
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_k{self.kfold_indx}.nc")
                 
             if not self.unbalanced:
+                
                 temp_stat = xr.open_dataset(
                     f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
                 
@@ -470,15 +566,25 @@ class SplitAndStandardize:
             test[np.isinf(test)]=0.0
             
         if not self.currenttrain_futuretest:
+            
             return np.divide((test - np.nanmean(train)), np.nanstd(train))
         
         if self.currenttrain_futuretest:
             
             if self.unbalanced:
-                temp_stat = xr.open_dataset(
-                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                
+                if not self.use_kfold:
+                
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                    
+                if self.use_kfold:
+                    
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_k{self.kfold_indx}.nc")
                 
             if not self.unbalanced:
+                
                 temp_stat = xr.open_dataset(
                     f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist.nc")
                 
@@ -514,14 +620,25 @@ class SplitAndStandardize:
                 train2, test2=self.create_traintest_data(below2, above2, return_label=False)
                 train3, test3=self.create_traintest_data(below3, above3, return_label=False)
                 train4, test4=self.create_traintest_data(below4, above4, return_label=False)
+                
                 return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
                 
             if self.unbalanced:
                 
-                train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
-                train2, test2=self.create_traintest_unbalanced(below2, above2, return_label=False)
-                train3, test3=self.create_traintest_unbalanced(below3, above3, return_label=False)
-                train4, test4=self.create_traintest_unbalanced(below4, above4, return_label=False)
+                if not self.use_kfold:
+                
+                    train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
+                    train2, test2=self.create_traintest_unbalanced(below2, above2, return_label=False)
+                    train3, test3=self.create_traintest_unbalanced(below3, above3, return_label=False)
+                    train4, test4=self.create_traintest_unbalanced(below4, above4, return_label=False)
+                    
+                if self.use_kfold:
+                    
+                    train1, test1, train_label, test_label=self.create_traintest_unbalanced_kfold(below1, above1, return_label=True)
+                    train2, test2=self.create_traintest_unbalanced_kfold(below2, above2, return_label=False)
+                    train3, test3=self.create_traintest_unbalanced_kfold(below3, above3, return_label=False)
+                    train4, test4=self.create_traintest_unbalanced_kfold(below4, above4, return_label=False)
+                    
                 return train1, train2, train3, train4, train_label, test1, test2, test3, test4, test_label
                 
         if self.single:
@@ -529,11 +646,19 @@ class SplitAndStandardize:
             if not self.unbalanced:
                 
                 train1, test1, train_label, test_label=self.create_traintest_data(below1, above1, return_label=True)
+                
                 return train1, test1, train_label, test_label
                 
             if self.unbalanced:
                 
-                train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
+                if not self.use_kfold:
+                
+                    train1, test1, train_label, test_label=self.create_traintest_unbalanced(below1, above1, return_label=True)
+                    
+                if self.use_kfold:
+                    
+                    train1, test1, train_label, test_label=self.create_traintest_unbalanced_kfold(below1, above1, return_label=True)
+                    
                 return train1, test1, train_label, test_label
 
     def standardize_training(self, func, data1, data2=None, data3=None, data4=None):
@@ -669,8 +794,15 @@ class SplitAndStandardize:
             
             if self.unbalanced:
                 
-                temp_stat = xr.open_dataset(
-                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                if not self.use_kfold:
+                
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                    
+                if self.use_kfold:
+                    
+                    temp_stat = xr.open_dataset(
+                        f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_k{self.kfold_indx}.nc")
                 
             if not self.unbalanced:
                 
@@ -756,12 +888,22 @@ class SplitAndStandardize:
         
         if self.unbalanced:
             
-            data_assemble.to_netcdf(
-                f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc")
-            dist_assemble.to_netcdf(
-                f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
-            print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")    
-
+            if not self.use_kfold:
+            
+                data_assemble.to_netcdf(
+                    f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc")
+                dist_assemble.to_netcdf(
+                    f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced.nc")
+                print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}).")   
+                
+            if self.use_kfold:
+                
+                data_assemble.to_netcdf(
+                    f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traintest_unbalanced_k{self.kfold_indx}.nc")
+                dist_assemble.to_netcdf(
+                    f"/{self.working_directory}/{self.climate}_{self.variable_translate().lower()}_{self.mask_str}_dldata_traindist_unbalanced_k{self.kfold_indx}.nc")
+                print(f"File saved ({self.climate}, {self.variable_translate().lower()}, {self.mask_str}, kfold:{self.kfold_indx}).")
+                
     def run_sequence(self):
         
         """Function that runs through the sequence of steps in data preprocessing for deep learning model training and testing data creation.
