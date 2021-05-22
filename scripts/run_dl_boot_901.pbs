@@ -1,0 +1,58 @@
+#!/bin/bash
+
+### Project name
+#PBS -A 
+
+### Job name
+#PBS -N bootstrap_dl
+
+### Wallclock time
+#PBS -l walltime=12:00:00
+
+### Queue
+#PBS -q economy
+
+### Merge output and error files
+#PBS -j oe               
+
+### Select 36 nodes with 36 CPUs
+#PBS -l select=1:ncpus=36:mpiprocs=36:mem=109GB
+
+### Send email on abort, begin and end
+#PBS -m abe
+
+### Specify mail recipient
+#PBS -M molina@ucar.edu
+
+export TMPDIR=/glade/scratch/$USER/temp
+mkdir -p $TMPDIR
+
+module load python/3.6.8
+module load ncarenv/1.3
+###ncar_pylib
+
+export PATH=/glade/work/$USER/miniconda3/bin:$PATH
+source activate python-tutorial
+
+CLIRUN=${CLI}
+
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=901 --random_file=1
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=931 --random_file=1
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=40 --seed_indexer=961 --random_file=1
+
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=901 --random_file=2 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=931 --random_file=2 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=40 --seed_indexer=961 --random_file=2
+
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=901 --random_file=3 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=931 --random_file=3 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=40 --seed_indexer=961 --random_file=3
+
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=901 --random_file=4 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=931 --random_file=4 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=40 --seed_indexer=961 --random_file=4
+
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=901 --random_file=5 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=30 --seed_indexer=931 --random_file=5 
+python run_boot_parallel.py --climate="${CLIRUN}" --boot_iterations=40 --seed_indexer=961 --random_file=5
+
