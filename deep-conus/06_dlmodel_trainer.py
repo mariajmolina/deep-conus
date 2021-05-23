@@ -23,8 +23,6 @@ class DLTraining:
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, ``UH03``, and ``MASK``.
         model_num (int): Number assignment for the model.
-        mask (boolean): Whether to train using the UH derived from masked data or non-masked data. Defaults to ``False``.
-        mask_train (boolean): Whether to train using masked state variable data. Defaults to ``False``. Will override ``mask`` to ``True``.
         unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``.
         retrain (boolean): Whether retraining an already trained model. Defaults to ``False``. 
         retrain_model_num (int): If retraining an already trained model, assign a new model num for the retrained model.
@@ -56,38 +54,28 @@ class DLTraining:
     Raises:
         Exception: Checks whether correct values were input for ``climate``, ``output_func_and_loss``, and ``pool_method``.
         
-    Todo:
-        * Sort out mask_train option for variables with less than 4 features in ``transpose_load_concat``.
-        
     """
     def __init__(self, working_directory, dlfile_directory, variables, model_num, 
-                 mask=False, mask_train=False, unbalanced=False, retrain=False, retrain_model_num=None,
+                 unbalanced=False, retrain=False, retrain_model_num=None,
                  climate='current', print_sequential=True,
                  conv_1_mapnum=32, conv_2_mapnum=68, conv_3_mapnum=128, 
                  acti_1_func='relu', acti_2_func='relu', acti_3_func='relu',
                  filter_width=5, learning_rate=0.0001, output_func_and_loss='sigmoid_mse', strides_len=1,
                  validation_split=0.1, batch_size=128, epochs=10, weight_seed=0,
                  pool_method='mean', drop_before_batch=False, batch_norm=True, spatial_drop=True, spatial_drop_perc=0.3,
-                 additional_dense=False, additional_dense_units=32, additional_dense_activation='relu'):
+                 additional_dense=False, additional_dense_units=32, additional_dense_activation='relu',
+                 kfold_total=5, kfold_indx=None, use_kfold=False):
 
         self.working_directory=working_directory
         self.dlfile_directory=dlfile_directory
         self.variables=variables
         self.model_num=model_num
-        self.mask_train=mask_train
         self.unbalanced=unbalanced
         self.retrain=retrain
         self.retrain_model_num=retrain_model_num
         
-        if not mask_train:
-            self.mask=mask
-            if not self.mask:
-                self.mask_str='nomask'
-            if self.mask:
-                self.mask_str='mask'
-        if mask_train:
-            self.mask=True
-            self.mask_str='mask'
+        self.mask_str='nomask'
+        
         if climate!='current' and climate!='future':
             raise Exception("Please enter ``current`` or ``future`` for climate option.")
         else:
@@ -136,6 +124,12 @@ class DLTraining:
         if self.additional_dense:
             self.additional_dense_units=additional_dense_units
             self.additional_dense_activation=additional_dense_activation
+            
+        # for k-fold cross validation
+        self.use_kfold=use_kfold
+        if self.use_kfold:
+            self.kfold_total=kfold_total
+            self.kfold_indx=kfold_indx
 
     def variable_translate(self, variable):
         
@@ -183,13 +177,6 @@ class DLTraining:
         sess=tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
 
-    def add_mask(self):
-        
-        """Function that adds ``MASK`` variable to last dim of test data array.
-        
-        """
-        return xr.open_dataset(f'/{test.dlfile_directory}/{test.climate}_mask_{test.mask_str}_dldata_traintest.nc')
-
     def open_files(self):
 
         """Open the training data files.
@@ -199,6 +186,7 @@ class DLTraining:
             
         """
         if not self.unbalanced:
+            
             datas={}
             for var in self.variables:
                 datas[var]=xr.open_dataset(
@@ -206,11 +194,22 @@ class DLTraining:
             return datas
         
         if self.unbalanced:
-            datas={}
-            for var in self.variables:
-                datas[var]=xr.open_dataset(
-                    f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc')
-            return datas
+            
+            if not self.use_kfold:
+            
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc')
+                return datas
+            
+            if self.use_kfold:
+            
+                datas={}
+                for var in self.variables:
+                    datas[var]=xr.open_dataset(
+                        f'/{self.dlfile_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_k{self.kfold_indx}.nc')
+                return datas
 
     def transpose_load_concat(self, **kwargs):
         
@@ -222,21 +221,20 @@ class DLTraining:
         Returns:
             X_train, label: Eagerly loaded training data and labels as a numpy array.
         
-        """
-        if self.mask_train:
-            datamask=self.add_mask()
+        """ 
         thedatas={}
+        
         for key, value in kwargs.items():
-            if not self.mask_train:
-                thedatas[key]=value.X_train.transpose('a','x','y','features').values
-            if self.mask_train:
-                temp=value.X_train.transpose('a','x','y','features').values
-                thedatas[key]=np.where(np.repeat(datamask['X_train'].values[...,np.newaxis], 4, axis=3)==0, 0, temp)
+            
+            thedatas[key]=value.X_train.transpose('a','x','y','features').values
             label=value.X_train_label.values
+            
         if len(kwargs) > 1:
             X_train=np.concatenate(list(thedatas.values()), axis=3)
+            
         if len(kwargs)==1:
             X_train=np.squeeze(np.asarray(list(thedatas.values())))
+            
         return X_train, label
 
     def omit_nans(self, data, label):
@@ -437,9 +435,15 @@ class DLTraining:
                           epochs=self.epochs, 
                           shuffle=True)
         
-        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
+        if not self.use_kfold:
         
-        save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
+            pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}.csv')
+            save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}.h5")
+            
+        if self.use_kfold:
+            
+            pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.model_num}_{self.climate}_k{self.kfold_indx}.csv')
+            save_model(model, f"/{self.working_directory}/model_{self.model_num}_{self.climate}_k{self.kfold_indx}.h5")
 
     def sequence_funcs(self):
         
@@ -507,7 +511,13 @@ class DLTraining:
         if self.print_sequential:
             print("Open previously trained model...")
             
-        model=load_model(f'{self.working_directory}/model_{self.model_num}_current.h5')
+        if not self.use_kfold:
+            
+            model=load_model(f'{self.working_directory}/model_{self.model_num}_{self.climate}.h5')
+            
+        if self.use_kfold:
+            
+            model=load_model(f'{self.working_directory}/model_{self.model_num}_{self.climate}_k{self.kfold_indx}.h5')
         
         if self.print_sequential:
             print("Retrain previously trained model...")
@@ -516,12 +526,18 @@ class DLTraining:
                           y=label_data, 
                           validation_split=self.validation_split, 
                           batch_size=self.batch_size, 
-                          epochs=self.epochs, 
-                          
+                          epochs=self.epochs,
                           shuffle=True)
-        pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.csv')
         
-        save_model(model, f"/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.h5")
+        if not self.use_kfold:
+            
+            pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.csv')
+            save_model(model, f"/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}.h5")
+            
+        if self.use_kfold:
+            
+            pd.DataFrame(history.history).to_csv(f'/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}_k{self.kfold_indx}.csv')
+            save_model(model, f"/{self.working_directory}/model_{self.retrain_model_num}_{self.climate}_k{self.kfold_indx}.h5")
         
         data=None
         train_data=None

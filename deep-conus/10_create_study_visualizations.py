@@ -1,7 +1,6 @@
 import keras
 import tensorflow as tf
 from keras import backend as K
-from keras.backend.tensorflow_backend import set_session
 from keras.models import load_model
 from scipy.ndimage import gaussian_filter
 import xarray as xr

@@ -14,14 +14,16 @@ class CreateEvaluationData:
         variables (str): Numpy array of variable name strings. Options include ``EU``, ``EV``, ``TK``, ``QVAPOR``, ``WMAX``, 
                          ``W_vert``,``PRESS``,``DBZ``,``CTT``,``UH25``, and``UH03``.
         directory (str): Directory where the deep learning files are saved and where these test data subsets will be saved.
-        mask (boolean): Whether to train using the masked data or the non-masked data. Defaults to ``False``.
         unbalanced (boolean): Whether training data will be artificially balanced (``False``) or left unbalanced (``True``). Defaults to ``False``.
+        kfold_total
+        kfold_indx
+        use_kfold
         
     Raises:
         Exceptions: Checks whether correct values were input for ``climate``, ``method``, and ``project_code``.
     
     """
-    def __init__(self, climate, variables, directory, mask=False, unbalanced=False):
+    def __init__(self, climate, variables, directory, unbalanced=False, kfold_total=5, kfold_indx=None, use_kfold=False):
         
         # sanity check
         if climate!='current' and climate!='future':
@@ -35,11 +37,15 @@ class CreateEvaluationData:
         self.unbalanced=unbalanced
         
         # string help
-        self.mask=mask
-        if not self.mask:
-            self.mask_str='nomask'
-        if self.mask:
-            self.mask_str='mask'
+        self.method='random'
+        self.mask=False
+        self.mask_str='nomask'
+        
+        # for k-fold cross validation
+        self.use_kfold=use_kfold
+        if self.use_kfold:
+            self.kfold_total=kfold_total
+            self.kfold_indx=kfold_indx
 
     def add_dbz(self):
         
@@ -145,10 +151,18 @@ class CreateEvaluationData:
                     parallel=True, combine='by_coords')
                     
             if self.unbalanced:
+                
+                if not self.use_kfold:
                     
-                data=xr.open_mfdataset(
-                    f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
-                    parallel=True, combine='by_coords')
+                    data=xr.open_mfdataset(
+                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced.nc',
+                        parallel=True, combine='by_coords')
+                    
+                if self.use_kfold:
+                    
+                    data=xr.open_mfdataset(
+                        f'/{self.directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_dldata_traintest_unbalanced_k{self.kfold_indx}.nc',
+                        parallel=True, combine='by_coords')
                     
             if self.method=='random':
                 
@@ -190,8 +204,15 @@ class CreateEvaluationData:
                     
             if self.unbalanced:
                 
-                data_assemble.to_netcdf(
-                    f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
+                if not self.use_kfold:
+                
+                    data_assemble.to_netcdf(
+                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced.nc')
+                    
+                if self.use_kfold:
+                    
+                    data_assemble.to_netcdf(
+                        f'/{self.directory}/{self.climate}_{self.variable_translate(variable).lower()}_{self.mask_str}_{self.method}_test{num+1}_unbalanced_k{self.kfold_indx}.nc')
                                         
         data_assemble=data_assemble.close()
         data=data.close()

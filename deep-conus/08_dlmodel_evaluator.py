@@ -253,14 +253,7 @@ class EvaluateDLModel:
                 
         if self.unbalanced:
                 
-            if not self.currenttrain_futuretest:
-                
-                data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
-                    
-            if self.currenttrain_futuretest:
-                    
-                data_dist=xr.open_dataset(
-                    f"/glade/scratch/molina/DL_proj/current_conus_fields/dl_preprocess/current_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
+            data_dist=xr.open_dataset(f"/{self.var_directory}/{self.climate}_qvapor_{self.mask_str}_dldata_traindist_unbalanced.nc")
                 
         qv1_mean=data_dist.train_mean.values[0]
         qv1_std=data_dist.train_std.values[0]
