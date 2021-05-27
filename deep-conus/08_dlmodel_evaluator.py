@@ -57,7 +57,8 @@ class EvaluateDLModel:
                  random_choice=None, obs_threshold=0.5, 
                  print_sequential=True, perm_feat_importance=False, pfi_variable=None, pfi_iterations=None,
                  currenttrain_futuretest=True,
-                 bootstrap=False, boot_iterations=1000, seed_indexer=1, outliers=False, upper_perc=99):
+                 bootstrap=False, boot_iterations=1000, seed_indexer=1, outliers=False, upper_perc=99,
+                 kfold_total=5, kfold_indx=None, use_kfold=False):
         
         # sanity check
         if climate!='current' and climate!='future':
@@ -105,6 +106,15 @@ class EvaluateDLModel:
         self.seed_indexer=seed_indexer
         self.outliers=outliers
         self.upper_perc=upper_perc
+        
+        # for k-fold cross validation
+        self.use_kfold=use_kfold
+        if self.use_kfold:
+            self.kfold_total=kfold_total
+            self.kfold_indx=kfold_indx
+            assert self.bootstrap==False
+            assert self.perm_feat_importance==False
+            assert self.outliers==False
 
     def variable_translate(self, variable):
 
@@ -210,8 +220,15 @@ class EvaluateDLModel:
                     
                 if self.unbalanced:
                     
-                    the_data[var]=xr.open_dataset(
+                    if not self.use_kfold:
+                    
+                        the_data[var]=xr.open_dataset(
                             f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced.nc')
+                        
+                    if self.use_kfold:
+                        
+                        the_data[var]=xr.open_dataset(
+                            f'/{self.var_directory}/{self.climate}_{self.variable_translate(var).lower()}_{self.mask_str}_{self.method}_test{self.random_choice}_unbalanced_k{self.kfold_indx}.nc')
                     
         return the_data
 
@@ -451,7 +468,11 @@ class EvaluateDLModel:
             test_data (numpy array): Test data.
         
         """
-        model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
+        if not self.use_kfold:
+            model=load_model(f'{self.model_directory}/model_{self.model_num}_current.h5')
+            
+        if self.use_kfold:
+            model=load_model(f'{self.model_directory}/model_{self.model_num}_current_k{self.kfold_indx}.h5')
         
         self.model_probability_forecasts=model.predict(test_data[...,:-6])
         
@@ -643,8 +664,15 @@ class EvaluateDLModel:
                     
                     if not self.perm_feat_importance:
                         
-                        self.contingency_nonscalar_table.to_csv(
-                            f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                        if not self.use_kfold:
+                        
+                            self.contingency_nonscalar_table.to_csv(
+                                f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                            
+                        if self.use_kfold:
+                            
+                            self.contingency_nonscalar_table.to_csv(
+                                f'{self.eval_directory}/probability_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_k{self.kfold_indx}.csv')
                     
                     if self.perm_feat_importance:
                         
@@ -732,8 +760,15 @@ class EvaluateDLModel:
                     
                     if not self.perm_feat_importance:
                         
-                        self.contingency_scalar_table.to_csv(
-                            f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                        if not self.use_kfold:
+                        
+                            self.contingency_scalar_table.to_csv(
+                                f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}.csv')
+                            
+                        if self.use_kfold:
+                            
+                            self.contingency_scalar_table.to_csv(
+                                f'{self.eval_directory}/scalar_results_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_k{self.kfold_indx}.csv')
                     
                     if self.perm_feat_importance:
                         
@@ -1171,7 +1206,8 @@ class EvaluateDLModel:
             if self.print_sequential:
                 print("Saving the indexed variables...")
                 
-            self.save_indx_variables(testdata)
+            if not self.use_kfold:
+                self.save_indx_variables(testdata)
             
             if self.print_sequential:
                 print("Evaluation is complete.")

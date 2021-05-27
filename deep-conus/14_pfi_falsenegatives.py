@@ -3,7 +3,6 @@ import xarray as xr
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
-# import local paths
 from configpaths import current_dl_preprocess, current_dl_models, deep_conus_home
 from configpaths import future_dl_models, model25_dir_future, future_dl_preprocess
 exec(open(f'{deep_conus_home}/08_dlmodel_evaluator.py').read())
@@ -23,6 +22,7 @@ def grab_all_indices(variable, total_perm, perc_min, perc_max):
         Xarray dataset containing the indices of the permutations for cases the >perc_max, <perc_min, and > perc_min & < perc_max.
     
     """
+    model25_dir_future = future_dl_models
     li_1 = []
     for p_num in range(total_perm):
         path = f'{model25_dir_future}/scalar_results_nomask_model25_random1_pfivar{variable}_perm{p_num+1}.csv'
@@ -306,7 +306,7 @@ def grab_testdata(random_number):
                              model_directory=f'{current_dl_models}', 
                              model_num=25,
                              eval_directory=f'{future_dl_models}', 
-                             mask=False, mask_train=False, unbalanced=True, validation=False, isotonic=False, bin_res=0.05,
+                             mask=False, mask_train=False, unbalanced=True, isotonic=False, bin_res=0.05,
                              random_choice=random_number, 
                              obs_threshold=0.5, print_sequential=True, 
                              perm_feat_importance=False, pfi_variable=None, outliers=False)

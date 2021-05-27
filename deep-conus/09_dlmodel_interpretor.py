@@ -422,8 +422,10 @@ class InterpretDLModel:
                         cmap=cmap_dbz, levels=levels, alpha=0.2)
 
             ax.contour(gaussian_filter(
-                test_data[composite_group][input_index,:,:,self.extract_variable_index(testdata)]*(-out_grad[0,:,:,self.extract_variable_index(testdata)]),1), 
+                    (test_data[composite_group][input_index,:,:,self.extract_variable_index(testdata)]*(
+                    -out_grad[0, :, :, self.extract_variable_index(testdata)])), 1), 
                        [-3, -2, -1, 1, 2, 3], vmin=-3, vmax=3, cmap="seismic", linewidths=3.0)
+            
             ax.set_xticks([])
             ax.set_yticks([])
             ax.xaxis.set_ticklabels([])
@@ -448,7 +450,9 @@ class InterpretDLModel:
         """
         testdata=test_data[composite_group]
         for_contours={}
+        
         for conv_filter in range(0,32):
+            
             out_diff=K.abs(dl_model.layers[-4].output[0, conv_filter] - 1)     #dense layer that was added
             grad=K.gradients(out_diff, [dl_model.input])[0]
             grad/=K.maximum(K.std(grad), K.epsilon())
@@ -456,7 +460,9 @@ class InterpretDLModel:
             input_img_data_neuron_grad=np.zeros((1, 32, 32, 20))
             input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-6])
             out_loss, out_grad=iterate([input_img_data_neuron, 1])        
+            
             for_contours[conv_filter]=gaussian_filter(-out_grad[0, :, :, self.extract_variable_index(testdata)], 1)
+            
         array=[p[1] for p in for_contours.items()]
         thecontours=np.asarray(array)
         thedbz=test_data[composite_group][input_index, :, :, self.extract_dbz_index(testdata)] * self.dbz_std + self.dbz_mean
@@ -464,6 +470,7 @@ class InterpretDLModel:
         theev=test_data[composite_group][input_index, :, :, self.extract_EV_index(testdata)] * self.ev_std + self.ev_mean
         theuh25=test_data[composite_group][input_index, :, :, self.extract_uh25_index(testdata)] * self.uh25_std + self.uh25_mean
         theuh03=test_data[composite_group][input_index, :, :, self.extract_uh03_index(testdata)] * self.uh03_std + self.uh03_mean
+        
         data=xr.Dataset({
             'saliency_maps':(['a','x','y'], thecontours),
             'dbz':(['x','y'], thedbz),
@@ -472,8 +479,61 @@ class InterpretDLModel:
             'uh25':(['x','y'], theuh25),
             'uh03':(['x','y'], theuh03),
             })
+        
         data.to_netcdf(
             f"{self.comp_directory}/saliency_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{composite_group}_{str(input_index)}_{self.variable}.nc")
+        return
+    
+    def save_inputgrad_maps(self, composite_group, input_index, dl_model, test_data):
+        
+        """Save the features using chosen indices to generate final images using the next module.
+        
+        Args:
+            composite_group (str): The subset of the test data based on prediction outcome. Choices include true positive ``tp``, 
+                                   true positive > 99% probability ``tp_99``, false positive ``fp``, false positive > 99% probability 
+                                   ``fp_99``, false negative ``fn``, false negative < 1% probability ``fn_01``, true negative ``tn``, 
+                                   true negative < 1% probability ``tn_01``.
+            input_index (int): Index of sample to generate saliency maps for.
+            dl_model (Keras saved model): The DL model to preview. Layers and activations will be extracted from loaded model.
+            test_data (numpy array): The test data to use for saliency map generation.
+        
+        """
+        testdata=test_data[composite_group]
+        for_contours={}
+        
+        for conv_filter in range(0,32):
+            
+            out_diff=K.abs(dl_model.layers[-4].output[0, conv_filter] - 1)     #dense layer that was added
+            grad=K.gradients(out_diff, [dl_model.input])[0]
+            grad/=K.maximum(K.std(grad), K.epsilon())
+            iterate=K.function([dl_model.input, K.learning_phase()], [out_diff, grad])
+            input_img_data_neuron_grad=np.zeros((1, 32, 32, 20))
+            input_img_data_neuron=np.copy(testdata[input_index:input_index+1,:,:,:-6])
+            out_loss, out_grad=iterate([input_img_data_neuron, 1]) 
+            
+            for_contours[conv_filter]=gaussian_filter(
+                    (test_data[composite_group][input_index,:,:,self.extract_variable_index(testdata)]*(
+                    -out_grad[0, :, :, self.extract_variable_index(testdata)])), 1)
+            
+        array=[p[1] for p in for_contours.items()]
+        thecontours=np.asarray(array)
+        thedbz=test_data[composite_group][input_index, :, :, self.extract_dbz_index(testdata)] * self.dbz_std + self.dbz_mean
+        theeu=test_data[composite_group][input_index, :, :, self.extract_EU_index(testdata)] * self.eu_std + self.eu_mean
+        theev=test_data[composite_group][input_index, :, :, self.extract_EV_index(testdata)] * self.ev_std + self.ev_mean
+        theuh25=test_data[composite_group][input_index, :, :, self.extract_uh25_index(testdata)] * self.uh25_std + self.uh25_mean
+        theuh03=test_data[composite_group][input_index, :, :, self.extract_uh03_index(testdata)] * self.uh03_std + self.uh03_mean
+        
+        data=xr.Dataset({
+            'saliency_maps':(['a','x','y'], thecontours),
+            'dbz':(['x','y'], thedbz),
+            'eu':(['x','y'], theeu),
+            'ev':(['x','y'], theev),
+            'uh25':(['x','y'], theuh25),
+            'uh03':(['x','y'], theuh03),
+            })
+        
+        data.to_netcdf(
+            f"{self.comp_directory}/inputgrad_{self.mask_str}_model{self.model_num}_{self.method}{self.random_choice}_{composite_group}_{str(input_index)}_{self.variable}.nc")
         return
 
     def auto_saliency(self, data):
