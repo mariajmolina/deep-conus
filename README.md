@@ -9,7 +9,7 @@ Molina, M. J., D. J. Gagne, and A. F. Prein (under review): A benchmark to test 
 
 _CONUS1 dataset used in project is available on NCAR's RDA at https://rda.ucar.edu/datasets/ds612.0/ and Cheyenne at /gpfs/fs1/collections/rda/data/ds612.0._
 
-_Dataset used to create journal figures is available at [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4052586.svg)](https://doi.org/10.5281/zenodo.4052586)_
+_Dataset used to create journal figures is available at [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4800369.svg)](https://doi.org/10.5281/zenodo.4800369)_
 
 ## CONUS1 Variables (3D) Used to train the CNN
 | Variable | Description |
