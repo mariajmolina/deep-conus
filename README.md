@@ -3,7 +3,7 @@ Repository containing scripts associated with NCAR Advanced Study Program deep l
 
 ------------
 
-Molina, M. J., D. J. Gagne, and A. F. Prein (under review): A benchmark to test generalization capabilities of deep learning methods to classify severe convective storms in a changing climate, Earth and Space Science.
+Molina, M. J., D. J. Gagne, and A. F. Prein, 2021: A benchmark to test generalization capabilities of deep learning methods to classify severe convective storms in a changing climate, Earth and Space Science. https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2020EA001490
 
 ------------
 
